@@ -1,0 +1,373 @@
+{
+  "task": "中文通知结构化信息提取",
+  "schema": ["event", "date", "time", "location", "deadline"],
+  "schemaDesc": {
+    "event": "活动/事项名称（名词短语，取自原文）",
+    "date": "通知核心事项的日期（发生日或要求完成日），保留原文表述",
+    "time": "具体时间（钟点/时段），保留原文表述",
+    "location": "地点/平台",
+    "deadline": "通知中【另外】给出的与 date 不同的截止时间；通知只有一个时间时填 date，deadline 留空"
+  },
+  "samples": [
+    {
+      "id": "N01",
+      "category": "normal",
+      "input": "【运动会通知】2026年秋季运动会定于10月15日下午2:00在学校田径场举行，报名截止时间为10月10日，请各班体育委员统计后统一提交。",
+      "reference": { "event": "秋季运动会", "date": "10月15日", "time": "下午2:00", "location": "学校田径场", "deadline": "10月10日" },
+      "mustExtract": ["event", "date", "time", "location", "deadline"],
+      "mustBeEmpty": [],
+      "critical": ["date"],
+      "note": "五字段齐全的基准样例"
+    },
+    {
+      "id": "N02",
+      "category": "normal",
+      "input": "AI大模型技术讲座将于10月9日晚上7:00在图书馆三楼报告厅举行，主讲人为张明教授，无需报名，欢迎参加。",
+      "reference": { "event": "AI大模型技术讲座", "date": "10月9日", "time": "晚上7:00", "location": "图书馆三楼报告厅", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "无截止时间，deadline 应留空"
+    },
+    {
+      "id": "N03",
+      "category": "normal",
+      "input": "产品部双周例会定于10月8日上午10:00在3楼A会议室召开，请提前5分钟到场。",
+      "reference": { "event": "产品部双周例会", "date": "10月8日", "time": "上午10:00", "location": "3楼A会议室", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "提前到场不是截止时间"
+    },
+    {
+      "id": "N04",
+      "category": "normal",
+      "input": "「开源之夜」线上直播定于10月11日20:00在官方B站直播间开始，全程约两小时。",
+      "reference": { "event": "开源之夜", "date": "10月11日", "time": "20:00", "location": "官方B站直播间", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "活动时长约两小时不是截止时间"
+    },
+    {
+      "id": "N05",
+      "category": "normal",
+      "input": "请于10月12日23:59前在学习平台提交实验报告，逾期系统关闭。",
+      "reference": { "event": "实验报告提交", "date": "10月12日", "time": "23:59", "location": "学习平台", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "唯一时间点填 date 而非 deadline"
+    },
+    {
+      "id": "N06",
+      "category": "normal",
+      "input": "社区养老院志愿服务：10月20日下午2:30在校门口集合出发，报名截止10月16日中午12:00。",
+      "reference": { "event": "社区养老院志愿服务", "date": "10月20日", "time": "下午2:30", "location": "校门口", "deadline": "10月16日中午12:00" },
+      "mustExtract": ["event", "date", "time", "location", "deadline"],
+      "mustBeEmpty": [],
+      "critical": ["date", "deadline"],
+      "note": "活动日与报名截止日并存，不得混淆"
+    },
+    {
+      "id": "N07",
+      "category": "normal",
+      "input": "新员工入职培训安排在10月13日至10月14日，每天上午9:00开始，地点为总部大楼5层培训室。",
+      "reference": { "event": "新员工入职培训", "date": "10月13日至10月14日", "time": "上午9:00", "location": "总部大楼5层培训室", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "日期区间原样输出"
+    },
+    {
+      "id": "N08",
+      "category": "normal",
+      "input": "动漫社招新面试将于10月10日下午4:00在学生活动中心201室进行，面试名单当晚公布。",
+      "reference": { "event": "动漫社招新面试", "date": "10月10日", "time": "下午4:00", "location": "学生活动中心201室", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "名单公布时间不是截止时间"
+    },
+    {
+      "id": "N09",
+      "category": "normal",
+      "input": "数据库原理期中考试安排：10月17日（周五）下午2:00-3:40，考场为教学楼B栋302。",
+      "reference": { "event": "数据库原理期中考试", "date": "10月17日", "time": "下午2:00-3:40", "location": "教学楼B栋302", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "时间段原样输出"
+    },
+    {
+      "id": "N10",
+      "category": "normal",
+      "input": "团队季度团建定于10月24日（周六）上午9:30在滨江森林公园东门集合，午餐自理，报名截止10月18日。",
+      "reference": { "event": "团队季度团建", "date": "10月24日", "time": "上午9:30", "location": "滨江森林公园东门", "deadline": "10月18日" },
+      "mustExtract": ["event", "date", "time", "location", "deadline"],
+      "mustBeEmpty": [],
+      "critical": ["date", "deadline"],
+      "note": "活动日与报名截止日并存"
+    },
+    {
+      "id": "M01",
+      "category": "missing",
+      "input": "请于10月12日提交实验报告，具体提交时间另行通知。",
+      "reference": { "event": "实验报告提交", "date": "10月12日", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date"],
+      "mustBeEmpty": ["time", "location", "deadline"],
+      "critical": ["time", "location", "deadline"],
+      "note": "经典案例：具体时间另行通知，补出任何钟点（如18:00）即为凭空捏造"
+    },
+    {
+      "id": "M02",
+      "category": "missing",
+      "input": "公司中秋晚会即将举办，具体日期和地点确定后另行通知，请留意群消息。",
+      "reference": { "event": "公司中秋晚会", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "仅事项名确定，四字段全空"
+    },
+    {
+      "id": "M03",
+      "category": "missing",
+      "input": "考研经验分享会定于本周四在第一教学楼201举行，具体时间另行通知。",
+      "reference": { "event": "考研经验分享会", "date": "本周四", "time": "", "location": "第一教学楼201", "deadline": "" },
+      "mustExtract": ["event", "date", "location"],
+      "mustBeEmpty": ["time", "deadline"],
+      "critical": ["time", "deadline"],
+      "note": "「具体时间另行通知」不得补钟点"
+    },
+    {
+      "id": "M04",
+      "category": "missing",
+      "input": "下周一召开全员大会，会议地点随后通知。",
+      "reference": { "event": "全员大会", "date": "下周一", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date"],
+      "mustBeEmpty": ["time", "location", "deadline"],
+      "critical": ["time", "location", "deadline"],
+      "note": "地点随后通知，不得猜会议室"
+    },
+    {
+      "id": "M05",
+      "category": "missing",
+      "input": "软件发布庆祝活动正在筹备中，日期、地点均未确定，欢迎关注后续通知。",
+      "reference": { "event": "软件发布庆祝活动", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "全部未定"
+    },
+    {
+      "id": "M06",
+      "category": "missing",
+      "input": "请各部门在10月30日前完成年度总结并提交至OA系统。",
+      "reference": { "event": "年度总结提交", "date": "10月30日", "time": "", "location": "OA系统", "deadline": "" },
+      "mustExtract": ["event", "date", "location"],
+      "mustBeEmpty": ["time", "deadline"],
+      "critical": ["time", "deadline"],
+      "note": "唯一时间点填 date；不得发明具体截止钟点"
+    },
+    {
+      "id": "M07",
+      "category": "missing",
+      "input": "体检通知：本次体检不设统一时间，请各位员工于10月26日前自行前往校医院预约。",
+      "reference": { "event": "体检", "date": "10月26日", "time": "", "location": "校医院", "deadline": "" },
+      "mustExtract": ["event", "date", "location"],
+      "mustBeEmpty": ["time", "deadline"],
+      "critical": ["time", "deadline"],
+      "note": "「不设统一时间」是明示陷阱，不得编造时段"
+    },
+    {
+      "id": "M08",
+      "category": "missing",
+      "input": "校运会开幕式因场地原因延期举行，新日期待定。",
+      "reference": { "event": "校运会开幕式", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "延期后日期待定，不得沿用或编造任何日期"
+    },
+    {
+      "id": "M09",
+      "category": "missing",
+      "input": "新书发布会将在线上举行，直播平台与开始时间尚未确定。",
+      "reference": { "event": "新书发布会", "date": "", "time": "", "location": "线上", "deadline": "" },
+      "mustExtract": ["event", "location"],
+      "mustBeEmpty": ["date", "time", "deadline"],
+      "critical": ["date", "time", "deadline"],
+      "note": "平台未知，不得补「腾讯会议」等具体平台或时间"
+    },
+    {
+      "id": "M10",
+      "category": "missing",
+      "input": "图书馆馆长面对面交流活动将于近期举行，具体时间地点请关注图书馆公众号。",
+      "reference": { "event": "馆长面对面交流活动", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "「近期」不构成日期，应留空"
+    },
+    {
+      "id": "A01",
+      "category": "ambiguous",
+      "input": "社团例会定在下周五晚上，地点还是老地方。",
+      "reference": { "event": "社团例会", "date": "下周五", "time": "晚上", "location": "老地方", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date", "time", "location"],
+      "note": "相对表述原样输出：不得把「下周五」换算成具体日期、不得把「晚上」写成具体钟点"
+    },
+    {
+      "id": "A02",
+      "category": "ambiguous",
+      "input": "公司年会初步定在12月底，具体日期投票后另行通知。",
+      "reference": { "event": "公司年会", "date": "12月底", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date"],
+      "mustBeEmpty": ["time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "「12月底」不得精确化为 12月31日 等"
+    },
+    {
+      "id": "A03",
+      "category": "ambiguous",
+      "input": "义务植树活动时间：明天上午，集合点为学校北门。",
+      "reference": { "event": "义务植树活动", "date": "明天", "time": "上午", "location": "学校北门", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date", "time", "location"],
+      "note": "「明天上午」不得换算为具体日期钟点"
+    },
+    {
+      "id": "A04",
+      "category": "ambiguous",
+      "input": "羽毛球比赛延期一周举行，新的比赛日期待主办方确认后公布。",
+      "reference": { "event": "羽毛球比赛", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "「延期一周」不等于可推算出新日期，禁止 +7 天推算"
+    },
+    {
+      "id": "A05",
+      "category": "ambiguous",
+      "input": "周报提交：每周五下班前提交给项目经理。",
+      "reference": { "event": "周报提交", "date": "每周五", "time": "下班前", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date", "time"],
+      "mustBeEmpty": ["location", "deadline"],
+      "critical": ["date", "time", "location"],
+      "note": "「下班前」不得写成 18:00"
+    },
+    {
+      "id": "A06",
+      "category": "ambiguous",
+      "input": "班级聚餐定在这周五晚上，餐厅群里再通知。",
+      "reference": { "event": "班级聚餐", "date": "这周五", "time": "晚上", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date", "time"],
+      "mustBeEmpty": ["location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "餐厅未定，不得猜店名"
+    },
+    {
+      "id": "A07",
+      "category": "ambiguous",
+      "input": "毕业照拍摄暂定下个月，具体时间另行安排。",
+      "reference": { "event": "毕业照拍摄", "date": "下个月", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date"],
+      "mustBeEmpty": ["time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "「下个月」不得展开为具体月份日期"
+    },
+    {
+      "id": "A08",
+      "category": "ambiguous",
+      "input": "系统升级维护预计持续到今晚，恢复时间视情况另行通知。",
+      "reference": { "event": "系统升级维护", "date": "", "time": "今晚", "location": "", "deadline": "" },
+      "mustExtract": ["event", "time"],
+      "mustBeEmpty": ["date", "location", "deadline"],
+      "critical": ["date", "location", "deadline"],
+      "note": "维护已在进行中，开始日期未给（date 留空）；「今晚」是时间点；恢复时间未给不得编造（10/7 试跑后人工标定：date/time 二选一时取 time）"
+    },
+    {
+      "id": "V01",
+      "category": "adversarial",
+      "input": "原定10月10日的科普讲座因故改期至10月17日下午2:00，地点不变，仍在科技馆一楼报告厅。",
+      "reference": { "event": "科普讲座", "date": "10月17日", "time": "下午2:00", "location": "科技馆一楼报告厅", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date"],
+      "note": "改期取新日期；10月10日是干扰项"
+    },
+    {
+      "id": "V02",
+      "category": "adversarial",
+      "input": "讲座地点由二教201调整为一教101，时间仍为10月14日上午9:00。",
+      "reference": { "event": "讲座", "date": "10月14日", "time": "上午9:00", "location": "一教101", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["location", "date"],
+      "note": "地点取调整后的一教101；二教201是干扰项"
+    },
+    {
+      "id": "V03",
+      "category": "adversarial",
+      "input": "本次技术沙龙不设线上参会，线下地点为创业园2栋路演厅，时间为10月16日晚7:00。",
+      "reference": { "event": "技术沙龙", "date": "10月16日", "time": "晚7:00", "location": "创业园2栋路演厅", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["location"],
+      "note": "「不设线上参会」是反向干扰：不得输出线上/腾讯会议等"
+    },
+    {
+      "id": "V04",
+      "category": "adversarial",
+      "input": "创新创业大赛决赛将于10月28日举行；进入决赛的队伍须在10月20日中午12:00前提交路演PPT。",
+      "reference": { "event": "创新创业大赛决赛", "date": "10月28日", "time": "", "location": "", "deadline": "10月20日中午12:00前" },
+      "mustExtract": ["event", "date", "deadline"],
+      "mustBeEmpty": ["time", "location"],
+      "critical": ["date", "deadline"],
+      "note": "活动日(10月28)与材料截止(10月20)两个日期不得互换；决赛当日时间未给，time 留空"
+    },
+    {
+      "id": "V05",
+      "category": "adversarial",
+      "input": "原定10月12日举行的迎新足球赛因天气原因取消，是否补赛另行通知。",
+      "reference": { "event": "迎新足球赛", "date": "", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event"],
+      "mustBeEmpty": ["date", "time", "location", "deadline"],
+      "critical": ["date", "time", "location", "deadline"],
+      "note": "活动已取消：10月12日不得再作为活动日期输出"
+    },
+    {
+      "id": "V06",
+      "category": "adversarial",
+      "input": "健身操课第三次改期：由周三改到周五晚上8:00，又因场地冲突最终定在周六上午10:00，地点为健身房B区。",
+      "reference": { "event": "健身操课", "date": "周六", "time": "上午10:00", "location": "健身房B区", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["date", "time", "location"],
+      "note": "多次改期取最终安排（周六上午10:00）；周三/周五是干扰项"
+    },
+    {
+      "id": "V07",
+      "category": "adversarial",
+      "input": "征稿截止时间调整：原截稿日10月15日作废，新截稿日为10月18日。",
+      "reference": { "event": "征稿", "date": "10月18日", "time": "", "location": "", "deadline": "" },
+      "mustExtract": ["event", "date"],
+      "mustBeEmpty": ["time", "location", "deadline"],
+      "critical": ["date"],
+      "note": "作废的 10月15日 是干扰项，取新截稿日"
+    },
+    {
+      "id": "V08",
+      "category": "adversarial",
+      "input": "新员工培训改为线上腾讯会议进行（会议号开课前群内通知），无需再前往原场地培训中心；时间仍为10月21日下午3:00。",
+      "reference": { "event": "新员工培训", "date": "10月21日", "time": "下午3:00", "location": "线上腾讯会议", "deadline": "" },
+      "mustExtract": ["event", "date", "time", "location"],
+      "mustBeEmpty": ["deadline"],
+      "critical": ["location", "date"],
+      "note": "培训中心是已作废场地，取线上腾讯会议"
+    }
+  ]
+}
