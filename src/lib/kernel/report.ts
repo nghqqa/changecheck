@@ -130,19 +130,34 @@ export function buildReportData(params: {
   const bothPass = samples.filter((s) => P(s) && C(s));
   const newFailCritical = newFailures.filter((s) => candAgg.get(String(s.id))?.criticalViolation);
 
+  const baseStats = versionStats(baselineRecords, baseAgg, samples, params.baselineVersion.name);
+  const candStats = versionStats(candidateRecords, candAgg, samples, params.candidateVersion.name);
+
+  // punchline：把"表面收益"与"新增失败"放进同一句话 —— 反差即意义
+  const pctDelta = (b: number | null, c: number | null): string | null => {
+    if (b == null || c == null || b <= 0) return null;
+    const p = Math.round(((c - b) / b) * 100);
+    if (p === 0) return null;
+    return p > 0 ? `+${p}%` : `${p}%`;
+  };
+  const perfParts = [pctDelta(baseStats.cost, candStats.cost), pctDelta(baseStats.avgLat, candStats.avgLat)]
+    .filter((x): x is string => x != null)
+    .map((x, i) => `${i === 0 ? '费用' : '耗时'}${x}`);
+  const perfText = perfParts.length ? `，${perfParts.join('、')}` : '';
+
   let verdict: string;
   let verdictLevel: ReportData['verdictLevel'];
   if (newFailCritical.length > 0) {
-    verdict = `候选版本存在 ${newFailCritical.length} 条违反关键要求的新增失败 —— 不建议直接采用；修复后复跑本测试确认新增失败清零。`;
+    verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 但抓到 ${newFailures.length} 条新增失败，其中 ${newFailCritical.length} 条违反关键要求。表面收益掩盖不了退步：不建议直接采用，修复后复跑确认新增失败清零。`;
     verdictLevel = 'reject';
   } else if (newFailures.length > 0) {
-    verdict = `候选版本有 ${newFailures.length} 条新增失败（未违反关键要求）—— 复核后可采用。`;
+    verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 有 ${newFailures.length} 条新增失败（未违反关键要求），复核后可采用。`;
     verdictLevel = 'review';
   } else if (newPasses.length > 0) {
-    verdict = `无新增失败，且有 ${newPasses.length} 条修复 —— 建议采用（最终由人工确认）。`;
+    verdict = `无新增失败，且修复 ${newPasses.length} 条${perfText ? `，${perfParts.join('、')}` : ''} —— 建议采用（最终由人工确认）。`;
     verdictLevel = 'adopt';
   } else {
-    verdict = '两版结果无差异 —— 维持现状，改版收益未体现。';
+    verdict = `两版结果无差异${perfText} —— 维持现状，改版收益未体现。`;
     verdictLevel = 'same';
   }
 
@@ -156,8 +171,8 @@ export function buildReportData(params: {
     verdict,
     verdictLevel,
     total: samples.length,
-    baseline: versionStats(baselineRecords, baseAgg, samples, params.baselineVersion.name),
-    candidate: versionStats(candidateRecords, candAgg, samples, params.candidateVersion.name),
+    baseline: baseStats,
+    candidate: candStats,
     diff: { newFailures: newFailures.length, newFailCritical: newFailCritical.length, newPasses: newPasses.length, bothFail: bothFail.length, bothPass: bothPass.length },
     byCategory: [...new Set(samples.map((s) => s.category))].map((c) => {
       const cs = samples.filter((s) => s.category === c);

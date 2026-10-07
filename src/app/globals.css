@@ -164,3 +164,29 @@ details.case .io { background: #fafbfc; border-radius: 8px; padding: 8px 12px; m
 
 .toolbar { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
 .sep { color: var(--line); margin: 0 2px; }
+
+.hero {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: 10px;
+  padding: 22px 24px;
+  margin-bottom: 22px;
+}
+.hero h1 { font-size: 21px; margin: 0 0 10px; }
+.hero-q { font-size: 15px; font-weight: 600; color: var(--brand); margin: 0 0 8px; }
+.hero-d { color: var(--ink-2); margin: 0 0 10px; }
+.hero-tag { margin: 0; font-size: 13px; color: var(--ink-2); }
+.hero-tag b { color: var(--ink); }
+
+.story { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 26px; }
+.step {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.step-t { font-weight: 700; margin-bottom: 6px; }
+.step-d { color: var(--ink-2); font-size: 13px; }
+@media (max-width: 900px) { .story { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .story { grid-template-columns: 1fr; } }
