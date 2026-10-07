@@ -15,9 +15,11 @@ const CATS = [
 export default function SampleForm({
   taskId,
   sample,
+  defaultOrigin = 'manual',
 }: {
   taskId: number;
   sample?: { id: number; category: string; input: string; reference: Record<string, string>; critical: string[]; note: string };
+  defaultOrigin?: 'manual' | 'real-error';
 }) {
   const router = useRouter();
   const [category, setCategory] = useState(sample?.category ?? 'normal');
@@ -39,7 +41,7 @@ export default function SampleForm({
       const res = await fetch(url, {
         method: sample ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category, input, reference, critical, note }),
+        body: JSON.stringify({ category, input, reference, critical, note, origin: defaultOrigin }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -38,7 +38,7 @@ export interface ReportData {
   newPassList: { sampleId: string | number; category: string; note: string }[];
   bothFailList: SampleReport[];
   nearList: { sampleId: string | number; field: string; expected: string; actual: string }[];
-  meta: { mode: string; model: string; reps: number; timeText: string; pricingText: string };
+  meta: { mode: string; model: string; reps: number; timeText: string; pricingText: string; requirements?: { text: string; items: { id: string; label: string; confirmed: boolean }[] } };
 }
 
 interface Agg {
@@ -203,6 +203,11 @@ export function renderMarkdown(taskName: string, d: ReportData): string {
   L.push(`- 模式：**${d.meta.mode === 'mock' ? 'mock 模拟（演示链路）' : '真实 API'}** ｜ 模型：${d.meta.model} ｜ 样例：${d.total} 条 ｜ 每条重复 ${d.meta.reps} 次`);
   L.push(`- 基线：${d.baseline.label} ｜ 候选：${d.candidate.label}`);
   L.push(`- 生成时间：${d.meta.timeText}`);
+  if (d.meta.requirements?.items?.some((i) => i.confirmed)) {
+    L.push('');
+    L.push(`**验收依据**（用户确认的检查项，源自要求描述：「${d.meta.requirements.text}」）：`);
+    for (const i of d.meta.requirements.items.filter((x) => x.confirmed)) L.push(`- ${i.id} ${i.label}`);
+  }
   L.push('');
   L.push('## 结论');
   L.push('');

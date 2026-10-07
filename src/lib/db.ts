@@ -9,6 +9,7 @@ export interface Task {
   name: string;
   scene: string;
   schema_json: string;
+  requirements_json: string | null;
   created_at: string;
 }
 
@@ -142,6 +143,7 @@ export function getDb(): DatabaseSync {
   // 轻量迁移：老库补列（已存在则忽略报错）
   try { db.exec('ALTER TABLE runs ADD COLUMN progress_done INTEGER NOT NULL DEFAULT 0'); } catch { /* 已有列 */ }
   try { db.exec('ALTER TABLE runs ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0'); } catch { /* 已有列 */ }
+  try { db.exec('ALTER TABLE tasks ADD COLUMN requirements_json TEXT'); } catch { /* 已有列 */ }
   _db = db;
   return db;
 }
@@ -269,6 +271,8 @@ export function finishRun(id: number, status: 'done' | 'error', statsJson: strin
 export const setRunStatus = (id: number, status: string) => getDb().prepare('UPDATE runs SET status=? WHERE id=?').run(status, id);
 export const updateRunProgress = (id: number, done: number, total: number) =>
   getDb().prepare('UPDATE runs SET progress_done=?, progress_total=? WHERE id=?').run(done, total, id);
+export const updateTaskRequirements = (id: number, requirementsJson: string) =>
+  getDb().prepare('UPDATE tasks SET requirements_json=? WHERE id=?').run(requirementsJson, id);
 
 export const sampleCount = (taskId: number) => (getDb().prepare('SELECT COUNT(*) AS n FROM samples WHERE task_id = ?').get(taskId) as unknown as { n: number }).n;
 export const runCount = (taskId: number) => (getDb().prepare('SELECT COUNT(*) AS n FROM runs WHERE task_id = ?').get(taskId) as unknown as { n: number }).n;

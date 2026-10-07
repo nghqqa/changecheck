@@ -94,6 +94,23 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
       {report && (
         <>
+          {report.meta.requirements?.items?.some((i) => i.confirmed) && (
+            <details className="card" style={{ marginBottom: 12 }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+                验收依据（用户确认的 {report.meta.requirements.items.filter((i) => i.confirmed).length} 条检查项）
+              </summary>
+              <div className="muted" style={{ margin: '8px 0 6px' }}>源自要求描述：「{report.meta.requirements.text}」</div>
+              {report.meta.requirements.items.filter((i) => i.confirmed).map((i) => (
+                <div key={i.id} style={{ display: 'flex', gap: 8 }}>
+                  <span className="badge ok">✓</span>
+                  <span>
+                    <span className="mono" style={{ color: 'var(--ink-2)', marginRight: 4 }}>{i.id}</span>
+                    {i.label}
+                  </span>
+                </div>
+              ))}
+            </details>
+          )}
           <div className={`banner ${report.verdictLevel}`}>{report.verdict}</div>
 
           <table>

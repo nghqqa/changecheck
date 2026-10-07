@@ -21,7 +21,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     reference,
     critical,
     note: body.note ?? '',
-    origin: 'manual',
+    origin: body.origin === 'real-error' ? 'real-error' : 'manual',
   });
   return NextResponse.json({ id: sid });
 }

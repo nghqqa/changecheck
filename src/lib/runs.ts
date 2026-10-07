@@ -106,6 +106,9 @@ async function executeRun(runId: number): Promise<void> {
         reps: run.reps,
         timeText: new Date().toLocaleString('zh-CN'),
         pricingText: `输入 ¥${opts.pricing.inputPerMTok}/百万token · 输出 ¥${opts.pricing.outputPerMTok}/百万token（估算单价）`,
+        requirements: task.requirements_json
+          ? (JSON.parse(task.requirements_json) as { text: string; items: { id: string; label: string; confirmed: boolean }[] })
+          : undefined,
       },
     });
     updateRunProgress(runId, total, total);
