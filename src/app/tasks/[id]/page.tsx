@@ -8,16 +8,33 @@ import SampleForm from '@/components/SampleForm';
 import SampleRowActions from '@/components/SampleRowActions';
 import VersionCard from '@/components/VersionCard';
 import RequirementsWizard, { RequirementsView } from '@/components/RequirementsWizard';
+import { Icon } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
 const catLabel: Record<string, string> = { normal: '正常', missing: '缺失', ambiguous: '歧义', adversarial: '对抗' };
-const verdictChip: Record<string, { cls: string; text: string }> = {
-  reject: { cls: 'critical', text: '🔴 有新增失败' },
-  review: { cls: 'missing', text: '⚠️ 需复核' },
-  adopt: { cls: 'ok', text: '✓ 建议采用' },
-  same: { cls: 'gray', text: '无差异' },
-};
+
+function VerdictChip({ level }: { level: string }) {
+  if (level === 'reject')
+    return (
+      <span className="badge critical">
+        <Icon name="dot" /> 有新增失败
+      </span>
+    );
+  if (level === 'review')
+    return (
+      <span className="badge missing">
+        <Icon name="alert" /> 需复核
+      </span>
+    );
+  if (level === 'adopt')
+    return (
+      <span className="badge ok">
+        <Icon name="check" /> 建议采用
+      </span>
+    );
+  return <span className="badge gray">无差异</span>;
+}
 
 export default async function TaskPage({ params }: { params: Promise<{ id: string }> }) {
   ensureSeeded();
@@ -32,12 +49,21 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   return (
     <div>
       <h1>{task.name}</h1>
+      <nav className="flow" aria-label="任务流程">
+        <a href="#sec-req">1 验收标准</a>
+        <span className="flow-sep">›</span>
+        <a href="#sec-samples">2 测试集</a>
+        <span className="flow-sep">›</span>
+        <a href="#sec-versions">3 版本配置</a>
+        <span className="flow-sep">›</span>
+        <a href="#sec-runs">4 运行历史</a>
+      </nav>
       <p className="page-desc">
-        <Link href="/">← 任务列表</Link> ｜ 流程：① 确认验收标准 → ② 准备测试集 → ③ 配置版本 → ④ 运行看报告 ｜{' '}
+        <Link href="/">← 任务列表</Link> ｜ 把业务要求变成检查项，配上测试集，改版后跑一次对比看证据 ｜{' '}
         <a href={`/api/tasks/${task.id}/export`}>导出测试资产 (JSON)</a>
       </p>
 
-      <h2 className="mt0">① 验收标准（要求引导）</h2>
+      <h2 className="mt0" id="sec-req">验收标准（要求引导）</h2>
       <p className="page-desc" style={{ marginTop: 0 }}>
         把自然语言业务要求变成可确认的检查项——确认后成为本任务的验收依据，出现在每份报告里。
       </p>
@@ -51,12 +77,13 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         </details>
       )}
 
-      <h2>② 测试集（{samples.length} 条，启用 {samples.filter((s) => s.enabled).length} 条）</h2>
+      <h2 id="sec-samples">测试集（{samples.length} 条，启用 {samples.filter((s) => s.enabled).length} 条）</h2>
       <div className="toolbar">
         <ImportSeedButton taskId={task.id} />
         <span className="muted">种子集 = M0 验证实验的 36 条样例（可复现）</span>
       </div>
-      <table>
+      <div className="table-wrap">
+        <table>
         <thead>
           <tr>
             <th style={{ width: 60 }}>ID</th>
@@ -98,6 +125,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           })}
         </tbody>
       </table>
+      </div>
 
       <details className="card" style={{ marginTop: 14 }}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>＋ 新增样例</summary>
@@ -115,7 +143,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         </div>
       </details>
 
-      <h2>③ 版本配置（{versions.length} 个）</h2>
+      <h2 id="sec-versions">版本配置（{versions.length} 个）</h2>
       <p className="page-desc">对比时任选两个：一个作基线（现状），一个作候选（改版）。改提示词就在这里改。</p>
       <div className="grid-2">
         {versions.map((v) => (
@@ -126,10 +154,11 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         ))}
       </div>
 
-      <h2>④ 运行历史（{runs.length} 次）</h2>
+      <h2 id="sec-runs">运行历史（{runs.length} 次）</h2>
       {runs.length === 0 ? (
-        <p className="page-desc">还没有运行记录。</p>
+        <p className="page-desc">还没有运行记录——配置好基线与候选版本后，从右上角发起第一次对比。</p>
       ) : (
+        <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -144,7 +173,6 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           <tbody>
             {runs.map((r) => {
               const stats = r.stats_json ? JSON.parse(r.stats_json) as { verdictLevel?: string } : null;
-              const chip = stats?.verdictLevel ? verdictChip[stats.verdictLevel] : null;
               return (
                 <tr key={r.id}>
                   <td className="mono">
@@ -157,7 +185,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
                   <td className="num">{r.reps}</td>
                   <td>
                     {r.status === 'done' ? (
-                      chip ? <span className={`badge ${chip.cls}`}>{chip.text}</span> : '—'
+                      stats?.verdictLevel ? <VerdictChip level={stats.verdictLevel} /> : '—'
                     ) : (
                       <>
                         <span className={`status-dot ${r.status}`} />
@@ -171,6 +199,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       <div className="toolbar" style={{ marginTop: 18 }}>

@@ -4,6 +4,7 @@ import { getRun, getTask, getVersion } from '@/lib/db';
 import { getRunReport } from '@/lib/runs';
 import type { ReportData, SampleReport } from '@/lib/kernel/report';
 import RunPoller from '@/components/RunPoller';
+import { Icon } from '@/components/icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,15 @@ function CaseDetails({ s }: { s: SampleReport }) {
   return (
     <details className={`case ${s.criticalViolation ? 'critical' : ''}`}>
       <summary>
-        {s.criticalViolation ? <span className="badge critical">🔴 违反关键要求</span> : <span className="badge gray">⚠️ 失败</span>}
+        {s.criticalViolation ? (
+          <span className="badge critical">
+            <Icon name="dot" /> 违反关键要求
+          </span>
+        ) : (
+          <span className="badge gray">
+            <Icon name="alert" /> 失败
+          </span>
+        )}
         <span className={`badge ${s.category}`}>{catLabel[s.category] ?? s.category}</span>
         <span className="mono">#{s.sampleId}</span>
         <span className="muted" style={{ flex: 1, minWidth: 200 }}>
@@ -35,28 +44,30 @@ function CaseDetails({ s }: { s: SampleReport }) {
           <b>候选输出</b>：{s.candidateOutput}
         </div>
         {s.fails.length > 0 && (
-          <table style={{ marginTop: 8 }}>
-            <thead>
-              <tr>
-                <th style={{ width: 100 }}>字段</th>
-                <th style={{ width: 170 }}>违反规则</th>
-                <th>期望</th>
-                <th>实际</th>
-                <th style={{ width: 50 }}>关键</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.fails.map((f, i) => (
-                <tr key={i}>
-                  <td className="mono">{f.field}</td>
-                  <td>{f.rule}</td>
-                  <td className="mono">{f.expected}</td>
-                  <td className="mono">{f.actual}</td>
-                  <td>{f.critical ? '🔴' : ''}</td>
+          <div className="table-wrap" style={{ marginTop: 8 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 100 }}>字段</th>
+                  <th style={{ width: 170 }}>违反规则</th>
+                  <th>期望</th>
+                  <th>实际</th>
+                  <th style={{ width: 50 }}>关键</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {s.fails.map((f, i) => (
+                  <tr key={i}>
+                    <td className="mono">{f.field}</td>
+                    <td>{f.rule}</td>
+                    <td className="mono">{f.expected}</td>
+                    <td className="mono">{f.actual}</td>
+                    <td>{f.critical ? <span style={{ color: 'var(--red)' }}><Icon name="dot" /></span> : ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
         {s.error && <p style={{ color: 'var(--red)' }}>错误：{s.error}</p>}
       </div>
@@ -102,7 +113,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
               <div className="muted" style={{ margin: '8px 0 6px' }}>源自要求描述：「{report.meta.requirements.text}」</div>
               {report.meta.requirements.items.filter((i) => i.confirmed).map((i) => (
                 <div key={i.id} style={{ display: 'flex', gap: 8 }}>
-                  <span className="badge ok">✓</span>
+                  <span className="badge ok"><Icon name="check" /></span>
                   <span>
                     <span className="mono" style={{ color: 'var(--ink-2)', marginRight: 4 }}>{i.id}</span>
                     {i.label}
@@ -113,17 +124,18 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           )}
           <div className={`banner ${report.verdictLevel}`}>{report.verdict}</div>
 
-          <table>
-            <thead>
-              <tr>
-                <th>版本</th>
-                <th className="num">通过</th>
-                <th className="num">关键要求违反</th>
-                <th className="num">调用失败</th>
-                <th className="num">费用(估)</th>
-                <th className="num">平均耗时</th>
-              </tr>
-            </thead>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>版本</th>
+                  <th className="num">通过</th>
+                  <th className="num">关键要求违反</th>
+                  <th className="num">调用失败</th>
+                  <th className="num">费用(估)</th>
+                  <th className="num">平均耗时</th>
+                </tr>
+              </thead>
             <tbody>
               <tr>
                 <td>{report.baseline.label}（基线）</td>
@@ -151,11 +163,13 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
               </tr>
             </tbody>
           </table>
+          </div>
 
           <p className="page-desc" style={{ marginTop: 10 }}>
             <b>改版差异</b>：新增失败 <b style={{ color: 'var(--red)' }}>{report.diff.newFailures}</b>（关键 {report.diff.newFailCritical}）｜ 新增通过 {report.diff.newPasses} ｜ 皆失败 {report.diff.bothFail} ｜ 皆通过 {report.diff.bothPass}
           </p>
 
+          <div className="table-wrap">
           <table>
             <thead>
               <tr>
@@ -180,6 +194,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
               ))}
             </tbody>
           </table>
+          </div>
 
           <h2>一、新增失败（最优先 · {report.newFailureList.length} 条）</h2>
           <p className="page-desc">基线通过、候选失败 = 本次改版引入的退步。点开看字段级证据。</p>
@@ -195,7 +210,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
             <p className="page-desc">
               {report.newPassList.map((s) => (
                 <span key={String(s.sampleId)} className="badge ok" style={{ marginRight: 8 }}>
-                  #{s.sampleId} {catLabel[s.category]} ✓
+                  <Icon name="check" /> #{s.sampleId} {catLabel[s.category]}
                 </span>
               ))}
             </p>
@@ -210,6 +225,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           {report.nearList.length === 0 ? (
             <p className="page-desc">（无）</p>
           ) : (
+            <div className="table-wrap">
             <table>
               <thead>
                 <tr>
@@ -230,6 +246,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                 ))}
               </tbody>
             </table>
+            </div>
           )}
 
           <p className="muted" style={{ marginTop: 24, fontSize: 12 }}>

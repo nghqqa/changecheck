@@ -23,7 +23,24 @@ body {
   color: var(--ink);
   font-size: 14px;
   line-height: 1.65;
+  caret-color: var(--brand);
 }
+
+/* 浏览器表面也属于设计的一部分：选区、滚动条、焦点环 */
+::selection { background: var(--brand); color: #fff; }
+* { scrollbar-width: thin; scrollbar-color: #c3ccd8 transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #c3ccd8; border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+.icon { width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+
+/* 宽表格在小屏横向滚动而不是撑破布局；min-width 防止表头在窄容器里逐字竖排换行 */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.table-wrap table { border: none; margin: 0; min-width: 560px; }
+.table-wrap th { white-space: nowrap; }
+.table-wrap th:first-child, .table-wrap td:first-child { border-left: none; }
+.table-wrap tr:last-child td { border-bottom: none; }
 
 .topbar {
   background: #fff;
@@ -110,7 +127,7 @@ input[type='text'], input[type='number'], select, textarea {
 }
 textarea { resize: vertical; min-height: 70px; }
 textarea.code, input.code { font-family: var(--mono); font-size: 12.5px; }
-:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
 .row > div { flex: 1; min-width: 120px; }
@@ -133,23 +150,25 @@ a { color: var(--brand); }
 details.case {
   background: var(--card);
   border: 1px solid var(--line);
-  border-left: 3px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 10px;
   padding: 0;
 }
-details.case.critical { border-left-color: var(--red); }
+details.case.critical { background: #fffafa; border-color: #f0d2d2; }
 details.case summary {
   cursor: pointer;
-  padding: 10px 14px;
+  padding: 11px 16px;
   display: flex;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
   list-style: none;
+  border-radius: 10px;
 }
 details.case summary::-webkit-details-marker { display: none; }
-details.case .body { padding: 4px 14px 14px; border-top: 1px dashed var(--line); }
+details.case summary:hover { background: #f7f9fb; }
+details.case[open] summary:hover { border-bottom-right-radius: 0; border-bottom-left-radius: 0; }
+details.case .body { padding: 6px 16px 16px; border-top: 1px dashed var(--line); }
 details.case .io { background: #fafbfc; border-radius: 8px; padding: 8px 12px; margin: 6px 0; word-break: break-all; }
 
 .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
@@ -165,28 +184,65 @@ details.case .io { background: #fafbfc; border-radius: 8px; padding: 8px 12px; m
 .toolbar { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
 .sep { color: var(--line); margin: 0 2px; }
 
+.flow { display: flex; align-items: center; gap: 7px; margin: 4px 0 8px; font-size: 13px; flex-wrap: wrap; }
+.flow a {
+  color: var(--ink-2);
+  text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 1px 11px;
+  border-radius: 999px;
+}
+.flow a:hover { color: var(--brand); border-color: var(--brand); }
+.flow-sep { color: #b9c2cd; }
+
 .hero {
   background: var(--card);
   border: 1px solid var(--line);
-  border-left: 4px solid var(--brand);
-  border-radius: 10px;
-  padding: 22px 24px;
-  margin-bottom: 22px;
+  border-radius: 12px;
+  padding: 26px 30px 24px;
+  margin-bottom: 26px;
 }
-.hero h1 { font-size: 21px; margin: 0 0 10px; }
-.hero-q { font-size: 15px; font-weight: 600; color: var(--brand); margin: 0 0 8px; }
-.hero-d { color: var(--ink-2); margin: 0 0 10px; }
+.hero h1 { font-size: 22px; margin: 0 0 12px; letter-spacing: -0.01em; }
+.hero-q { font-size: 16.5px; font-weight: 700; color: var(--brand); margin: 0 0 8px; }
+.hero-d { color: var(--ink-2); margin: 0 0 12px; max-width: 72ch; }
 .hero-tag { margin: 0; font-size: 13px; color: var(--ink-2); }
 .hero-tag b { color: var(--ink); }
 
-.story { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 0 0 26px; }
-.step {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
+/* 改版故事：流程时间线（桌面横向、窄屏纵向） */
+.story { position: relative; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 22px; margin: 14px 0 30px; padding: 0; }
+.story::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: calc(25% - 4px);
+  height: 1.5px;
+  background: var(--line);
 }
-.step-t { font-weight: 700; margin-bottom: 6px; }
+.step { position: relative; padding-top: 36px; }
+.step .dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 29px;
+  height: 29px;
+  border: 1.5px solid var(--brand);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--brand);
+  font-weight: 700;
+  font-size: 13px;
+  background: var(--bg);
+  z-index: 1;
+}
+.step-t { font-weight: 700; margin-bottom: 4px; }
 .step-d { color: var(--ink-2); font-size: 13px; }
-@media (max-width: 900px) { .story { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .story { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .story { grid-template-columns: 1fr; gap: 0; }
+  .story::before { left: 14px; top: 30px; bottom: 34px; right: auto; width: 1.5px; height: auto; }
+  .step { padding: 0 0 20px 46px; }
+  .step:last-child { padding-bottom: 0; }
+}

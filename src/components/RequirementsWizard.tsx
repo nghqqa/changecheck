@@ -4,6 +4,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { parseRequirements, type CheckItem, type StoredRequirements } from '@/lib/requirements';
+import { Icon } from '@/components/icons';
 
 export default function RequirementsWizard({ taskId, initial }: { taskId: number; initial: StoredRequirements | null }) {
   const router = useRouter();
@@ -111,7 +112,7 @@ export function RequirementsView({ r }: { r: StoredRequirements }) {
       </div>
       {confirmedItems.map((i) => (
         <div key={i.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
-          <span className="badge ok">✓</span>
+          <span className="badge ok"><Icon name="check" /></span>
           <span>
             <span className="mono" style={{ color: 'var(--ink-2)', marginRight: 4 }}>{i.id}</span>
             {i.label}
