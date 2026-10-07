@@ -22,7 +22,24 @@ export DEEPSEEK_MODEL=deepseek-flash
 docker compose up -d                # http://localhost:3000
 ```
 
-首次打开自动播种演示任务「中文通知信息提取」（36 条样例 + 两版提示词，即 M0 验证实验的可复现数据）：发起对比运行 → 报告页看「新增失败优先」的回归证据 → 导出 Markdown 报告。
+首次打开自动播种两个演示任务（36 条样例 + 版本配置，即 M0 验证实验的可复现数据）：
+**植入缺陷演示**（好心改版如何埋雷被抓）与**盲测**（"精简提示词省 token"的真实改版，结果未预埋）。
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `DEEPSEEK_API_KEY` | 无 | 被测模型 API key，只经环境变量注入，不落库不进仓库；缺失时仍可用 mock 模式 |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | 任意 OpenAI 兼容端点（GLM/Kimi/自建网关等） |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | 默认被测模型（可在版本配置里逐版本覆盖） |
+| `CC_PRICE_IN` / `CC_PRICE_OUT` | `2` / `8` | 费用估算单价（元/百万 token），按你所用模型官网现价覆盖 |
+
+### 开发
+
+```bash
+npm test        # 内核单元测试（检查器规则 / JSON 提取 / 报告聚合与结论）
+npm run build   # 生产构建（CI 同款）
+```
 
 ## 仓库结构
 

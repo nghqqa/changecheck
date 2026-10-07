@@ -13,6 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     error: run.error,
     mode: run.mode,
     reps: run.reps,
+    progress: { done: run.progress_done, total: run.progress_total },
     report: run.status === 'done' && run.stats_json ? JSON.parse(run.stats_json) : null,
   });
 }

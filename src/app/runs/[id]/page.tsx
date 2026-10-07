@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getRun, getTask, getVersion } from '@/lib/db';
-import { recomputeReport } from '@/lib/runs';
+import { getRunReport } from '@/lib/runs';
 import type { ReportData, SampleReport } from '@/lib/kernel/report';
 import RunPoller from '@/components/RunPoller';
 

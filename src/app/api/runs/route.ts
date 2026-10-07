@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTask, getVersion, insertRun } from '@/lib/db';
-import { executeRun } from '@/lib/runs';
+import { enqueueRun } from '@/lib/runs';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +20,6 @@ export async function POST(req: NextRequest) {
   }
 
   const runId = insertRun({ task_id: taskId, baseline_version_id: baseId, candidate_version_id: candId, mode, reps });
-  // 进程内异步执行，前端轮询 GET /api/runs/[id]
-  void executeRun(runId).catch((e) => console.error(`[run ${runId}] 执行失败:`, e));
-  return NextResponse.json({ id: runId });
+  const { queuedAhead } = enqueueRun(runId);
+  return NextResponse.json({ id: runId, queuedAhead });
 }

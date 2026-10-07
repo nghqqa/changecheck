@@ -39,6 +39,9 @@ export const DEFAULT_PRICING = { inputPerMTok: 2, outputPerMTok: 8 };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// 单次调用硬超时：防止网络悬挂导致整个 run 永远卡住（思考型模型长推理也需要上限）
+const CALL_TIMEOUT_MS = 180_000;
+
 /** 从模型原始输出中提取 JSON 对象（容忍 ```json 围栏与前后杂文） */
 export function extractJson(raw: string | null | undefined): { ok: boolean; value?: Record<string, unknown>; error?: string } {
   if (raw == null) return { ok: false, error: '空输出' };
@@ -81,6 +84,7 @@ async function callOnce(ctx: CallCtx, userPrompt: string, attempt = 1): Promise<
         max_tokens: ctx.maxTokens,
         stream: false,
       }),
+      signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
