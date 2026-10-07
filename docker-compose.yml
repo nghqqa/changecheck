@@ -1,0 +1,19 @@
+services:
+  changecheck:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      # 被测模型配置（key 只经环境变量注入，不进镜像/仓库）
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      # 费用估算单价（元/百万 token），可按官网现价覆盖
+      CC_PRICE_IN: ${CC_PRICE_IN:-2}
+      CC_PRICE_OUT: ${CC_PRICE_OUT:-8}
+    volumes:
+      - cc-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  cc-data:

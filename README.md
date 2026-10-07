@@ -6,7 +6,33 @@
 - **中文名**：改版验收官（备选：`evaliff`、金丝雀/canary 隐喻）
 - **参赛**：2026 上海开源软件应用创新大赛 · 开源 AI 工具赛道（自主选题）
 - **截止**：2026-10-11 24:00 前提交材料至 oscc@oschina.cn
-- **当前阶段**：Milestone 0 ✅ 完成（真实 API 验证：植入退步 36/36 抓到、0 误报，见 docs/project-brief.md §6 与 m0/）；下一步 10/8 报名表 + 核心应用
+- **当前阶段**：v1 核心应用可用（任务/测试集/版本配置/两版对比运行/回归报告，真实 API 已验证）；下一步 10/8 报名表 + 打磨
+
+## 快速开始
+
+```bash
+# 本地开发（无 key 也能用 mock 模式跑通全流程）
+npm install && npm run dev          # http://localhost:3000
+
+# 真实调用被测模型（DeepSeek，OpenAI 兼容协议，可换）
+export DEEPSEEK_API_KEY=sk-xxx      # PowerShell: $env:DEEPSEEK_API_KEY='sk-xxx'
+export DEEPSEEK_MODEL=deepseek-flash
+
+# 一键部署（评审验证用）
+docker compose up -d                # http://localhost:3000
+```
+
+首次打开自动播种演示任务「中文通知信息提取」（36 条样例 + 两版提示词，即 M0 验证实验的可复现数据）：发起对比运行 → 报告页看「新增失败优先」的回归证据 → 导出 Markdown 报告。
+
+## 仓库结构
+
+```
+src/app        # 页面（任务/测试集/版本/运行报告）与 API 路由
+src/lib/kernel # 内核三层：executor 执行器 / checker 检查器 / report 回归报告（UI 无关）
+src/lib        # db.ts(SQLite) / seed.ts(种子) / runs.ts(运行编排)
+m0/            # Milestone 0 验证实验（脚本版内核 + 种子数据来源，保留作复现）
+docs/          # 项目文档（主文档 project-brief / 架构 / 产品愿景 / 赛事事实）
+```
 
 ## 文档导航
 
