@@ -6,7 +6,8 @@
 - **中文名**：改版验收官（备选：`evaliff`、金丝雀/canary 隐喻）
 - **参赛**：2026 上海开源软件应用创新大赛 · 开源 AI 工具赛道（自主选题）
 - **截止**：2026-10-11 24:00 前提交材料至 oscc@oschina.cn
-- **当前阶段**：v1 核心应用可用（任务/测试集/版本配置/两版对比运行/回归报告，真实 API 已验证）；下一步 10/8 报名表 + 打磨
+- **当前阶段**：✅ 可提交版本（2026-10-07）——功能完整、21 项测试全过、CI 绿、介绍 PDF 已生成
+- **提交材料**：见 [docs/submission/checklist.md](docs/submission/checklist.md)（仓库/介绍 PDF/演示视频脚本）
 
 ## 快速开始
 
@@ -55,9 +56,12 @@ docs/          # 项目文档（主文档 project-brief / 架构 / 产品愿景 
 
 | 文档 | 内容 |
 |---|---|
-| [docs/project-brief.md](docs/project-brief.md) | 项目主文档：背景、全部关键决策、产品设计、排期、验证实验、提交清单 |
+| [docs/project-brief.md](docs/project-brief.md) | 项目主文档：背景、全部关键决策（D1–D7）、产品设计、排期、验证实验 |
 | [docs/product-vision.md](docs/product-vision.md) | 完整产品形态：三层形态（Web/CLI/MCP）、五层内核、演进路线、战略判断 |
+| [docs/architecture.md](docs/architecture.md) | v1 技术架构：分层、数据模型、API、内核与扩展口 |
+| [docs/market-research.md](docs/market-research.md) | 市场调研：11 个同类产品 × 6 维度对比，四大空白与定位依据 |
 | [docs/competition-facts.md](docs/competition-facts.md) | 赛事核实事实（截止时间、评审权重、奖项、材料要求，含来源） |
+| [docs/submission/](docs/submission/checklist.md) | 提交材料：清单、介绍 PDF、演示视频脚本、试用记录模板 |
 | [m0/README.md](m0/README.md) | Milestone 0 验证实验：怎么跑、回答什么问题、结论 |
 
 ## 给下一个会话的指引
