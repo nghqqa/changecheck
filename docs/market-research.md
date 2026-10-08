@@ -41,3 +41,17 @@
 - Braintrust 定价（团队向证据）: https://www.braintrust.dev/docs/plans-and-limits
 - 回归方法论（空白佐证）: https://www.testmuai.com / https://alt.qa
 - 完整调研简报（含 11 产品 × 6 维度对比表）见会话记录；未确认事项：LangSmith/Phoenix/Weave 的 CI 细节、Agenta 转型后现状
+
+## 五、同赛道/邻近项目复核（2026-10-08，参赛前撞车排查）
+
+| 项目 | 一句话 | 与我们的关系 |
+|---|---|---|
+| EditHere (GitHub, 354★/27天) | 截图批注→结构化JSON→喂给AI改图改UI的「意图输入工具」（C++/Qt桌面） | **互补不竞争**：它管「改之前把需求说清楚」（输入端），我们管「改完之后验没验过」（验证端）——同一条人机迭代闭环的上下游，其流程中恰恰没有验证环节 |
+| ai-helper (Gitee, 4★) | 浏览器操作型 AI 助手扩展（运行时助手，填表/提取/跑命令） | 不同物种：面向终端用户效率，无版本对比/评测概念；**反例价值**：825提交+文档站+上架商店仍4星——完成度不决定传播 |
+| iotTurn (Gitee, 2★) | Rust TURN/STUN 服务器（WebRTC/IoT 基础设施） | 完全无关 |
+
+**EditHere 涨星拆解（可复制的分发打法，非方向启示）**：README 七个动图一图一功能 × vibe coding 浪潮的巨大受众 × 「终于不用跟 AI 比划」的高频情绪 × linux.do/V2EX 精准投放 + 「让 AI 帮你安装」提示词钩子。
+
+**借鉴清单**：① 报告页动图化呈现（赛前做）② changecheck review 命令——AI 发起人工评审会话、裁决 schema 化并可提升为用例（赛后）③ AI-SETUP.md 式「让 AI 帮你接入回归测试」获客钩子（赛后）④ 用例/报告文件 schema 化（schemaVersion+兼容，赛后）⑤ Checkpoint 续跑（赛后，已有逐次落库基础）。
+
+**区分话术**（评审问差异化时用）：「EditHere 解决把要改什么说清楚，ChangeCheck 解决改完之后验没验过。」
