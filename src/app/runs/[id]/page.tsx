@@ -9,15 +9,38 @@ import { Icon } from '@/components/icons';
 export const dynamic = 'force-dynamic';
 
 const catLabel: Record<string, string> = { normal: '正常', missing: '缺失', ambiguous: '歧义', adversarial: '对抗' };
-const fmtCost = (c: number | null) => (c == null ? '未知' : `¥${c.toFixed(4)}`);
+const fmtCost = (v: { cost: number | null; costKnown: 'all' | 'partial' | 'none' }) => {
+  if (v.costKnown === 'none') return '未知';
+  const text = `¥${(v.cost ?? 0).toFixed(4)}`;
+  return v.costKnown === 'partial' ? (
+    <>
+      {text}
+      <span className="muted" style={{ fontSize: 11 }}>（部分未知）</span>
+    </>
+  ) : (
+    text
+  );
+};
 
 function CaseDetails({ s }: { s: SampleReport }) {
   return (
-    <details className={`case ${s.criticalViolation ? 'critical' : ''}`}>
+    <details className={`case ${s.flags?.newCritical ? 'critical' : ''}`}>
       <summary>
-        {s.criticalViolation ? (
+        {s.flags?.hiddenByMajority ? (
+          <span className="badge critical">
+            <Icon name="dot" /> 关键违规被多数决掩盖
+          </span>
+        ) : s.flags?.newCritical && s.flags.newFail ? (
           <span className="badge critical">
             <Icon name="dot" /> 违反关键要求
+          </span>
+        ) : s.flags?.newCritical ? (
+          <span className="badge critical">
+            <Icon name="dot" /> 升级为关键违规
+          </span>
+        ) : s.criticalViolation ? (
+          <span className="badge gray">
+            <Icon name="alert" /> 失败
           </span>
         ) : (
           <span className="badge gray">
@@ -144,7 +167,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                 </td>
                 <td className="num">{report.baseline.criticalCount}</td>
                 <td className="num">{report.baseline.callErrors}</td>
-                <td className="num">{fmtCost(report.baseline.cost)}</td>
+                <td className="num">{fmtCost(report.baseline)}</td>
                 <td className="num">{report.baseline.avgLat != null ? `${report.baseline.avgLat} ms` : '未知'}</td>
               </tr>
               <tr style={{ background: 'var(--brand-soft)' }}>
@@ -158,7 +181,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
                   {report.candidate.criticalCount}
                 </td>
                 <td className="num">{report.candidate.callErrors}</td>
-                <td className="num">{fmtCost(report.candidate.cost)}</td>
+                <td className="num">{fmtCost(report.candidate)}</td>
                 <td className="num">{report.candidate.avgLat != null ? `${report.candidate.avgLat} ms` : '未知'}</td>
               </tr>
             </tbody>
@@ -166,7 +189,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           </div>
 
           <p className="page-desc" style={{ marginTop: 10 }}>
-            <b>改版差异</b>：新增失败 <b style={{ color: 'var(--red)' }}>{report.diff.newFailures}</b>（关键 {report.diff.newFailCritical}）｜ 新增通过 {report.diff.newPasses} ｜ 皆失败 {report.diff.bothFail} ｜ 皆通过 {report.diff.bothPass}
+            <b>改版差异</b>：新增失败 <b style={{ color: 'var(--red)' }}>{report.diff.newFailures}</b> ｜ <b style={{ color: report.diff.newCriticalViolations > 0 ? 'var(--red)' : undefined }}>新增关键违规 {report.diff.newCriticalViolations}</b>（被多数决掩盖 {report.diff.hiddenCritical}）｜ 新增通过 {report.diff.newPasses} ｜ 皆失败 {report.diff.bothFail} ｜ 皆通过 {report.diff.bothPass}
           </p>
 
           <div className="table-wrap">
@@ -196,8 +219,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           </table>
           </div>
 
-          <h2>一、新增失败（最优先 · {report.newFailureList.length} 条）</h2>
-          <p className="page-desc">基线通过、候选失败 = 本次改版引入的退步。点开看字段级证据。</p>
+          <h2>一、新增退步（最优先 · {report.newFailureList.length} 条 = 整条退步 {report.diff.newFailures} + 新增关键违规 {report.diff.newCriticalViolations}，去重）</h2>
+          <p className="page-desc">基线通过、候选失败 = 整条退步；候选出现基线没有的关键违规 = 关键层面退步（无论整条多数决是否通过，均参与一票否决）。</p>
           {report.newFailureList.length === 0 && <p className="page-desc">（无）</p>}
           {report.newFailureList.map((s) => (
             <CaseDetails key={String(s.sampleId)} s={s} />

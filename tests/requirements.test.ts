@@ -1,7 +1,7 @@
 // 要求引导引擎 v0 解析器测试
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRequirements } from '../src/lib/requirements';
+import { parseRequirements, deriveRules } from '../src/lib/requirements';
 
 test('命中缺失留空与禁止编造要求', () => {
   const items = parseRequirements('没写的信息必须留空，绝对不能编造时间');
@@ -35,4 +35,16 @@ test('空输入只给基础约定', () => {
   const items = parseRequirements('');
   assert.ok(items.length >= 2);
   assert.ok(items.every((i) => i.kind === 'core'));
+});
+
+test('deriveRules：确认项驱动检查器开关（勾选前后结果确实不同）', () => {
+  const items = parseRequirements('没写的留空不能编；格式保持原文一致');
+  const labeled = items.map((i) => ({ label: i.label, ruleKey: i.ruleKey, confirmed: true }));
+  // 全部确认 = 默认严格口径
+  assert.deepEqual(deriveRules(labeled), { verbatim: true, eventNear: true, emptyCritical: true });
+  // 取消「逐字一致」与「留空」确认 → 对应规则真实放宽
+  const relaxed = labeled.map((i) => (i.ruleKey === 'verbatim' || i.ruleKey === 'emptyCritical' ? { ...i, confirmed: false } : i));
+  assert.deepEqual(deriveRules(relaxed), { verbatim: false, eventNear: true, emptyCritical: false });
+  // 未出现的要求项保持默认（不因缺席而放宽）
+  assert.deepEqual(deriveRules([{ label: '无关项', confirmed: false }]), { verbatim: true, eventNear: true, emptyCritical: true });
 });

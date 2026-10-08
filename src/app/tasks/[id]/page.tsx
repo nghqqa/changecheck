@@ -149,7 +149,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
         {versions.map((v) => (
           <VersionCard
             key={v.id}
-            v={{ id: v.id, name: v.name, model: v.model, system_prompt: v.system_prompt, user_template: v.user_template, temperature: v.temperature, max_tokens: v.max_tokens }}
+            v={{ id: v.id, name: v.name, model: v.model, system_prompt: v.system_prompt, user_template: v.user_template, temperature: v.temperature, max_tokens: v.max_tokens, price_in: v.price_in, price_out: v.price_out }}
           />
         ))}
       </div>

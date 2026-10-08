@@ -23,8 +23,9 @@ export DEEPSEEK_MODEL=deepseek-flash
 docker compose up -d                # http://localhost:3000
 ```
 
-首次打开自动播种两个演示任务（36 条样例 + 版本配置，即 M0 验证实验的可复现数据）：
-**植入缺陷演示**（好心改版如何埋雷被抓）与**盲测**（"精简提示词省 token"的真实改版，结果未预埋）。
+首次打开自动播种三个演示任务（36 条样例 + 版本配置，即 M0 验证实验的可复现数据）：
+**植入缺陷演示**（好心改版如何埋雷被抓，真实 API 数据）、**盲测**（"精简提示词省 token"的真实改版，结果未预埋，真实 API 跑出 8 条新增失败）、**混合案例**（mock 演示：候选通过率更高但藏着被多数决掩盖的关键违规 → 一票否决；再用修复版复跑确认清零——完整演示"发现退步→修复→复跑"闭环）。
+历史运行原始记录（M0 真实跑 + 演示报告导出）见 [docs/evidence/](docs/evidence/)。
 
 ### 环境变量
 
@@ -33,7 +34,7 @@ docker compose up -d                # http://localhost:3000
 | `DEEPSEEK_API_KEY` | 无 | 被测模型 API key，只经环境变量注入，不落库不进仓库；缺失时仍可用 mock 模式 |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | 任意 OpenAI 兼容端点（GLM/Kimi/自建网关等） |
 | `DEEPSEEK_MODEL` | `deepseek-flash` | 默认被测模型（可在版本配置里逐版本覆盖） |
-| `CC_PRICE_IN` / `CC_PRICE_OUT` | `2` / `8` | 费用估算单价（元/百万 token），按你所用模型官网现价覆盖 |
+| `CC_PRICE_IN` / `CC_PRICE_OUT` | `2` / `8` | 全局默认单价（元/百万 token）；换模型对比时建议在版本配置里按版本覆盖 |
 
 ### 开发
 

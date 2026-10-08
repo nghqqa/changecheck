@@ -11,6 +11,8 @@ export interface VersionData {
   user_template: string;
   temperature: number;
   max_tokens: number;
+  price_in: number | null;
+  price_out: number | null;
 }
 
 export default function VersionCard({ v }: { v: VersionData }) {
@@ -57,6 +59,17 @@ export default function VersionCard({ v }: { v: VersionData }) {
       <textarea className="code" rows={10} value={data.system_prompt} onChange={(e) => setData({ ...data, system_prompt: e.target.value })} />
       <label>用户消息模板（{'{{input}}'} 会被替换为通知原文）</label>
       <textarea className="code" rows={3} value={data.user_template} onChange={(e) => setData({ ...data, user_template: e.target.value })} />
+      <label>单价覆盖（元/百万 token；换模型比较费用时必填，留空用全局默认）</label>
+      <div className="row">
+        <div>
+          <label style={{ color: 'var(--ink)' }}>输入价</label>
+          <input type="number" step="0.1" min="0" value={data.price_in ?? ''} onChange={(e) => setData({ ...data, price_in: e.target.value === '' ? null : Number(e.target.value) })} placeholder="全局默认" />
+        </div>
+        <div>
+          <label style={{ color: 'var(--ink)' }}>输出价</label>
+          <input type="number" step="0.1" min="0" value={data.price_out ?? ''} onChange={(e) => setData({ ...data, price_out: e.target.value === '' ? null : Number(e.target.value) })} placeholder="全局默认" />
+        </div>
+      </div>
       <div className="toolbar">
         <button className="btn primary" onClick={save} disabled={busy}>
           {busy ? '保存中…' : '保存版本配置'}

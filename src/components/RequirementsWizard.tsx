@@ -30,7 +30,7 @@ export default function RequirementsWizard({ taskId, initial }: { taskId: number
         body: JSON.stringify({
           requirements: {
             text,
-            items: draft.map((i) => ({ id: i.id, label: i.label, confirmed: !!confirmed[i.id], mapped: i.mapped })),
+            items: draft.map((i) => ({ id: i.id, label: i.label, confirmed: !!confirmed[i.id], mapped: i.mapped, ruleKey: i.ruleKey })),
             confirmedAt: '',
           },
         }),
@@ -61,7 +61,7 @@ export default function RequirementsWizard({ taskId, initial }: { taskId: number
 
       {draft && (
         <>
-          <label>检查项草稿（勾选 = 确认为本任务的验收标准；冲突项请先裁决）</label>
+          <label>检查项草稿（勾选 = 确认为本任务的验收标准；标注「规则」的项目取消勾选会真实放宽对应检查）</label>
           {draft.map((i) => (
             <div
               key={i.id}
@@ -82,7 +82,8 @@ export default function RequirementsWizard({ taskId, initial }: { taskId: number
                 </span>
               </label>
               <span className="muted" style={{ fontSize: 12 }}>
-                依据：{i.basis} ｜ 执行：{i.mapped}
+                依据：{i.basis}
+                {i.ruleKey && <b style={{ color: 'var(--amber)' }}> ｜ 规则开关</b>} ｜ 执行：{i.mapped}
               </span>
             </div>
           ))}
@@ -105,6 +106,12 @@ export default function RequirementsWizard({ taskId, initial }: { taskId: number
 
 export function RequirementsView({ r }: { r: StoredRequirements }) {
   const confirmedItems = r.items.filter((i) => i.confirmed);
+  const rules = r.rules ?? { verbatim: true, eventNear: true, emptyCritical: true };
+  const ruleChips: Array<[string, boolean, string]> = [
+    ['逐字一致', rules.verbatim, '关闭后非事项字段允许宽容近似（进人工复核）'],
+    ['事项名等价', rules.eventNear, '关闭后 event 必须逐字一致'],
+    ['补全零容忍', rules.emptyCritical, '关闭后凭空补全仍判失败但不再一票否决'],
+  ];
   return (
     <div className="card">
       <div className="muted" style={{ marginBottom: 6 }}>
@@ -119,6 +126,15 @@ export function RequirementsView({ r }: { r: StoredRequirements }) {
           </span>
         </div>
       ))}
+      <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed var(--line)' }}>
+        <span className="muted" style={{ fontSize: 12.5 }}>检查器当前生效规则：</span>{' '}
+        {ruleChips.map(([name, on, hint]) => (
+          <span key={name} className={`badge ${on ? 'ok' : 'gray'}`} title={hint} style={{ marginRight: 6 }}>
+            {name} {on ? '开' : '关'}
+          </span>
+        ))}
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>这些开关由你的确认项派生，检查时真实读取——取消勾选某条要求，检查行为会随之改变。</div>
+      </div>
     </div>
   );
 }

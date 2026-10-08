@@ -36,6 +36,8 @@ export interface VersionRow {
   user_template: string;
   temperature: number;
   max_tokens: number;
+  price_in: number | null;
+  price_out: number | null;
   created_at: string;
 }
 
@@ -53,6 +55,7 @@ export interface RunRow {
   finished_at: string | null;
   progress_done: number;
   progress_total: number;
+  snapshot_json: string | null;
 }
 
 export interface RunItemRow {
@@ -144,6 +147,13 @@ export function getDb(): DatabaseSync {
   try { db.exec('ALTER TABLE runs ADD COLUMN progress_done INTEGER NOT NULL DEFAULT 0'); } catch { /* 已有列 */ }
   try { db.exec('ALTER TABLE runs ADD COLUMN progress_total INTEGER NOT NULL DEFAULT 0'); } catch { /* 已有列 */ }
   try { db.exec('ALTER TABLE tasks ADD COLUMN requirements_json TEXT'); } catch { /* 已有列 */ }
+  try { db.exec('ALTER TABLE runs ADD COLUMN snapshot_json TEXT'); } catch { /* 已有列 */ }
+  try { db.exec('ALTER TABLE versions ADD COLUMN price_in REAL'); } catch { /* 已有列 */ }
+  try { db.exec('ALTER TABLE versions ADD COLUMN price_out REAL'); } catch { /* 已有列 */ }
+
+  // 重启清扫：内存队列随进程消失，遗留的进行中任务不可能再完成，显式标记为中断
+  db.exec("UPDATE runs SET status='error', error='运行被中断（服务重启）。已完成的调用证据保留在逐条记录中，请重新发起运行。' WHERE status IN ('pending','running')");
+
   _db = db;
   return db;
 }
@@ -200,9 +210,9 @@ export const listVersions = (taskId: number) =>
   getDb().prepare('SELECT * FROM versions WHERE task_id = ? ORDER BY id').all(taskId) as unknown as VersionRow[];
 export const getVersion = (id: number) => getDb().prepare('SELECT * FROM versions WHERE id = ?').get(id) as unknown as VersionRow | undefined;
 
-export function insertVersion(taskId: number, v: { name: string; model: string; system_prompt: string; user_template?: string; temperature?: number; max_tokens?: number }): number {
+export function insertVersion(taskId: number, v: { name: string; model: string; system_prompt: string; user_template?: string; temperature?: number; max_tokens?: number; price_in?: number | null; price_out?: number | null }): number {
   const r = getDb()
-    .prepare('INSERT INTO versions (task_id, name, model, system_prompt, user_template, temperature, max_tokens) VALUES (?,?,?,?,?,?,?)')
+    .prepare('INSERT INTO versions (task_id, name, model, system_prompt, user_template, temperature, max_tokens, price_in, price_out) VALUES (?,?,?,?,?,?,?,?,?)')
     .run(
       taskId,
       v.name,
@@ -210,16 +220,18 @@ export function insertVersion(taskId: number, v: { name: string; model: string; 
       v.system_prompt,
       v.user_template ?? '通知原文：\n{{input}}\n\n请输出 JSON。',
       v.temperature ?? 0,
-      v.max_tokens ?? 2000
+      v.max_tokens ?? 2000,
+      v.price_in ?? null,
+      v.price_out ?? null
     );
   return Number(r.lastInsertRowid);
 }
 
-export function updateVersion(id: number, v: Partial<{ name: string; model: string; system_prompt: string; user_template: string; temperature: number; max_tokens: number }>) {
+export function updateVersion(id: number, v: Partial<{ name: string; model: string; system_prompt: string; user_template: string; temperature: number; max_tokens: number; price_in: number | null; price_out: number | null }>) {
   const cur = getVersion(id);
   if (!cur) return;
   getDb()
-    .prepare('UPDATE versions SET name=?, model=?, system_prompt=?, user_template=?, temperature=?, max_tokens=? WHERE id=?')
+    .prepare('UPDATE versions SET name=?, model=?, system_prompt=?, user_template=?, temperature=?, max_tokens=?, price_in=?, price_out=? WHERE id=?')
     .run(
       v.name ?? cur.name,
       v.model ?? cur.model,
@@ -227,15 +239,17 @@ export function updateVersion(id: number, v: Partial<{ name: string; model: stri
       v.user_template ?? cur.user_template,
       v.temperature ?? cur.temperature,
       v.max_tokens ?? cur.max_tokens,
+      v.price_in !== undefined ? v.price_in : cur.price_in,
+      v.price_out !== undefined ? v.price_out : cur.price_out,
       id
     );
 }
 
 // ---- runs ----
-export function insertRun(r: { task_id: number; baseline_version_id: number; candidate_version_id: number; mode: string; reps: number }): number {
+export function insertRun(r: { task_id: number; baseline_version_id: number; candidate_version_id: number; mode: string; reps: number; snapshot_json: string }): number {
   const res = getDb()
-    .prepare('INSERT INTO runs (task_id, baseline_version_id, candidate_version_id, mode, reps) VALUES (?,?,?,?,?)')
-    .run(r.task_id, r.baseline_version_id, r.candidate_version_id, r.mode, r.reps);
+    .prepare('INSERT INTO runs (task_id, baseline_version_id, candidate_version_id, mode, reps, snapshot_json) VALUES (?,?,?,?,?,?)')
+    .run(r.task_id, r.baseline_version_id, r.candidate_version_id, r.mode, r.reps, r.snapshot_json);
   return Number(res.lastInsertRowid);
 }
 export const getRun = (id: number) => getDb().prepare('SELECT * FROM runs WHERE id = ?').get(id) as unknown as RunRow | undefined;

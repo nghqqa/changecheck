@@ -14,6 +14,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ vi
     ...(body.user_template !== undefined ? { user_template: String(body.user_template) } : {}),
     ...(body.temperature !== undefined ? { temperature: Number(body.temperature) } : {}),
     ...(body.max_tokens !== undefined ? { max_tokens: Number(body.max_tokens) } : {}),
+    ...(body.price_in !== undefined ? { price_in: body.price_in === '' || body.price_in === null ? null : Number(body.price_in) } : {}),
+    ...(body.price_out !== undefined ? { price_out: body.price_out === '' || body.price_out === null ? null : Number(body.price_out) } : {}),
   });
   return NextResponse.json({ ok: true });
 }

@@ -8,6 +8,29 @@ export interface CheckItem {
   basis: string; // 依据：命中了用户描述里的什么表述
   kind: 'core' | 'conflict';
   mapped: string; // 映射到内核的哪条规则
+  /** 该项确认与否会切换的检查器规则开关（未标注 = 仅展示，规则恒开） */
+  ruleKey?: keyof CheckerRules;
+}
+
+/** 由确认要求派生的检查器规则开关（缺省 = 现行严格行为） */
+export interface CheckerRules {
+  /** 逐字一致：开 = 非事项字段必须逐字（仅括号注解可复核）；关 = 允许宽容近似进复核 */
+  verbatim: boolean;
+  /** 事项名等价：开 = 等价即可；关 = event 必须逐字 */
+  eventNear: boolean;
+  /** 凭空补全零容忍：开 = 补全即关键违规（一票否决）；关 = 仍判失败但不否决 */
+  emptyCritical: boolean;
+}
+
+export const DEFAULT_RULES: CheckerRules = { verbatim: true, eventNear: true, emptyCritical: true };
+
+/** 从确认项派生检查器规则（服务端执行，不信任客户端提交的 rules） */
+export function deriveRules(items: { label: string; ruleKey?: keyof CheckerRules; confirmed: boolean }[]): CheckerRules {
+  const rules: CheckerRules = { ...DEFAULT_RULES };
+  for (const it of items) {
+    if (it.ruleKey && it.ruleKey in rules) rules[it.ruleKey] = !!it.confirmed;
+  }
+  return rules;
 }
 
 interface Pattern {
@@ -20,12 +43,12 @@ const PATTERNS: Pattern[] = [
   {
     kind: 'core',
     re: /留空|没写|未提|不填|另行通知|尚未|待定|未定|未给出/,
-    item: { label: '原文未提及的字段必须留空（凭空补全 = 关键违规）', mapped: 'checker: empty(必须留空)' },
+    item: { label: '原文未提及的字段必须留空（凭空补全 = 关键违规）', mapped: 'checker: empty(必须留空)', ruleKey: 'emptyCritical' },
   },
   {
     kind: 'core',
     re: /编|猜|捏造|臆造|幻觉|瞎|杜撰|虚构|估计|默认值/,
-    item: { label: '严禁编造：宁可留空，不可补默认值/估计值', mapped: 'checker: empty(必须留空)' },
+    item: { label: '严禁编造：宁可留空，不可补默认值/估计值', mapped: 'checker: empty(必须留空)', ruleKey: 'emptyCritical' },
   },
   {
     kind: 'core',
@@ -35,7 +58,7 @@ const PATTERNS: Pattern[] = [
   {
     kind: 'core',
     re: /原文|逐字|保持|一致|格式|改写|换算/,
-    item: { label: '值与通知原文逐字一致：不改写、不换算（如下午2:00 ≠ 14:00）', mapped: 'checker: exact(应与原文一致)' },
+    item: { label: '值与通知原文逐字一致：不改写、不换算（如下午2:00 ≠ 14:00；关闭后近似差异仅进人工复核）', mapped: 'checker: exact(应与原文一致)', ruleKey: 'verbatim' },
   },
   {
     kind: 'core',
@@ -57,7 +80,7 @@ const PATTERNS: Pattern[] = [
 
 const BASE_ITEMS: Omit<CheckItem, 'id' | 'basis'>[] = [
   { label: '输出为合法 JSON，且仅含约定字段（event/date/time/location/deadline）', kind: 'core', mapped: 'checker: schema' },
-  { label: 'event 识别出正确事项（命名等价即可，不逐字要求）', kind: 'core', mapped: 'checker: exact(事项名等价)' },
+  { label: 'event 识别出正确事项（命名等价即可；关闭则要求逐字一致）', kind: 'core', mapped: 'checker: exact(事项名等价)', ruleKey: 'eventNear' },
 ];
 
 /** 解析自然语言要求 → 检查项草稿（去重；冲突项排最前提醒确认） */
@@ -83,6 +106,8 @@ export function parseRequirements(text: string): CheckItem[] {
 
 export interface StoredRequirements {
   text: string; // 用户原始描述（进报告，追溯依据）
-  items: { id: string; label: string; confirmed: boolean; mapped: string }[];
+  items: { id: string; label: string; confirmed: boolean; mapped: string; ruleKey?: keyof CheckerRules }[];
   confirmedAt: string;
+  /** 由确认项派生的检查器规则（服务端 deriveRules 计算，检查时实际读取） */
+  rules: CheckerRules;
 }

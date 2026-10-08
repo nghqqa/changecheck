@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTask, getVersion, insertRun } from '@/lib/db';
-import { enqueueRun } from '@/lib/runs';
+import { buildSnapshot, enqueueRun } from '@/lib/runs';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: '缺少 DEEPSEEK_API_KEY，请改用 mock 模式或配置环境变量' }, { status: 400 });
   }
 
-  const runId = insertRun({ task_id: taskId, baseline_version_id: baseId, candidate_version_id: candId, mode, reps });
+  // 点击运行即固化快照（版本配置/测试集/检查规则），之后编辑不影响本次运行的可复现性
+  const snap = buildSnapshot(taskId, baseId, candId);
+  if ('error' in snap) return NextResponse.json({ error: snap.error }, { status: 400 });
+
+  const runId = insertRun({ task_id: taskId, baseline_version_id: baseId, candidate_version_id: candId, mode, reps, snapshot_json: JSON.stringify(snap) });
   const { queuedAhead } = enqueueRun(runId);
   return NextResponse.json({ id: runId, queuedAhead });
 }

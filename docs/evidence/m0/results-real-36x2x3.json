@@ -1,0 +1,5412 @@
+{
+  "meta": {
+    "mode": "real",
+    "model": "deepseek-flash",
+    "reps": 3,
+    "stamp": "20261007131433"
+  },
+  "versions": {
+    "old": {
+      "id": "old",
+      "label": "旧版 · 稳定提示词",
+      "model": "deepseek-flash",
+      "temperature": 0,
+      "maxTokens": 2000,
+      "systemPrompt": "你是信息提取助手。从用户给出的中文通知中提取以下字段，输出一个 JSON 对象（只输出 JSON，不要任何多余文字）：\n{\"event\":\"活动/事项名称\",\"date\":\"日期\",\"time\":\"具体时间\",\"location\":\"地点\",\"deadline\":\"另外给出的截止时间\"}\n\n提取规则：\n1. 每个字段的值必须逐字摘自通知原文，保留原文表述，不要改写、换算或翻译（原文写「下午2:00」就输出「下午2:00」，不要写成「14:00」；原文写「下周五」就输出「下周五」，不要换算成具体日期）。\n2. 只提取通知中明确写出的信息；通知未提及的字段一律输出空字符串 \"\"。\n3. 严禁猜测、推断或补全：原文没写的日期/时间/地点必须留空，宁可留空不可编造。\n4. date 填通知核心事项的日期（发生日或要求完成日）；deadline 只在通知另外给出了与 date 不同的截止时间时填写；通知只有一个时间时填 date，deadline 留空。\n5. 事件多次改期/变更时，取最终有效的安排；已作废的日期、地点、场地是干扰信息，不得输出。\n6. event 用通知中最能指代该事项的简短名词短语。",
+      "userTemplate": "通知原文：\n{{input}}\n\n请输出 JSON。"
+    },
+    "new": {
+      "id": "new",
+      "label": "新版 · 「更完整可用」提示词（植入缺陷）",
+      "model": "deepseek-flash",
+      "temperature": 0,
+      "maxTokens": 2000,
+      "systemPrompt": "你是信息提取助手。从用户给出的中文通知中提取以下字段，输出一个 JSON 对象（只输出 JSON，不要任何多余文字）：\n{\"event\":\"活动/事项名称\",\"date\":\"日期\",\"time\":\"具体时间\",\"location\":\"地点\",\"deadline\":\"截止时间\"}\n\n为了下游系统可以直接使用，输出必须完整、规范：\n1. 对通知中未明确写出的字段，根据常识给出合理的默认值或估计值：未写具体时间可默认「18:00」；未写地点可填「待定」或「线上」；未写年份的日期补全为「2026年」。\n2. date 和 deadline 尽量输出完整、具体：相对表述（如「下周五」「明天」）应换算为具体日期；模糊时段（如「晚上」「下班前」）应给出具体钟点。\n3. event 输出完整的正式名称，可适当补充主办方或年份使其更正式。\n4. 输出值统一规范格式，方便程序读取。",
+      "userTemplate": "通知原文：\n{{input}}\n\n请输出 JSON。"
+    }
+  },
+  "samples": [
+    {
+      "id": "N01",
+      "category": "normal",
+      "input": "【运动会通知】2026年秋季运动会定于10月15日下午2:00在学校田径场举行，报名截止时间为10月10日，请各班体育委员统计后统一提交。",
+      "reference": {
+        "event": "秋季运动会",
+        "date": "10月15日",
+        "time": "下午2:00",
+        "location": "学校田径场",
+        "deadline": "10月10日"
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "mustBeEmpty": [],
+      "critical": [
+        "date"
+      ],
+      "note": "五字段齐全的基准样例"
+    },
+    {
+      "id": "N02",
+      "category": "normal",
+      "input": "AI大模型技术讲座将于10月9日晚上7:00在图书馆三楼报告厅举行，主讲人为张明教授，无需报名，欢迎参加。",
+      "reference": {
+        "event": "AI大模型技术讲座",
+        "date": "10月9日",
+        "time": "晚上7:00",
+        "location": "图书馆三楼报告厅",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "无截止时间，deadline 应留空"
+    },
+    {
+      "id": "N03",
+      "category": "normal",
+      "input": "产品部双周例会定于10月8日上午10:00在3楼A会议室召开，请提前5分钟到场。",
+      "reference": {
+        "event": "产品部双周例会",
+        "date": "10月8日",
+        "time": "上午10:00",
+        "location": "3楼A会议室",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "提前到场不是截止时间"
+    },
+    {
+      "id": "N04",
+      "category": "normal",
+      "input": "「开源之夜」线上直播定于10月11日20:00在官方B站直播间开始，全程约两小时。",
+      "reference": {
+        "event": "开源之夜",
+        "date": "10月11日",
+        "time": "20:00",
+        "location": "官方B站直播间",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "活动时长约两小时不是截止时间"
+    },
+    {
+      "id": "N05",
+      "category": "normal",
+      "input": "请于10月12日23:59前在学习平台提交实验报告，逾期系统关闭。",
+      "reference": {
+        "event": "实验报告提交",
+        "date": "10月12日",
+        "time": "23:59",
+        "location": "学习平台",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "唯一时间点填 date 而非 deadline"
+    },
+    {
+      "id": "N06",
+      "category": "normal",
+      "input": "社区养老院志愿服务：10月20日下午2:30在校门口集合出发，报名截止10月16日中午12:00。",
+      "reference": {
+        "event": "社区养老院志愿服务",
+        "date": "10月20日",
+        "time": "下午2:30",
+        "location": "校门口",
+        "deadline": "10月16日中午12:00"
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "mustBeEmpty": [],
+      "critical": [
+        "date",
+        "deadline"
+      ],
+      "note": "活动日与报名截止日并存，不得混淆"
+    },
+    {
+      "id": "N07",
+      "category": "normal",
+      "input": "新员工入职培训安排在10月13日至10月14日，每天上午9:00开始，地点为总部大楼5层培训室。",
+      "reference": {
+        "event": "新员工入职培训",
+        "date": "10月13日至10月14日",
+        "time": "上午9:00",
+        "location": "总部大楼5层培训室",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "日期区间原样输出"
+    },
+    {
+      "id": "N08",
+      "category": "normal",
+      "input": "动漫社招新面试将于10月10日下午4:00在学生活动中心201室进行，面试名单当晚公布。",
+      "reference": {
+        "event": "动漫社招新面试",
+        "date": "10月10日",
+        "time": "下午4:00",
+        "location": "学生活动中心201室",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "名单公布时间不是截止时间"
+    },
+    {
+      "id": "N09",
+      "category": "normal",
+      "input": "数据库原理期中考试安排：10月17日（周五）下午2:00-3:40，考场为教学楼B栋302。",
+      "reference": {
+        "event": "数据库原理期中考试",
+        "date": "10月17日",
+        "time": "下午2:00-3:40",
+        "location": "教学楼B栋302",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "时间段原样输出"
+    },
+    {
+      "id": "N10",
+      "category": "normal",
+      "input": "团队季度团建定于10月24日（周六）上午9:30在滨江森林公园东门集合，午餐自理，报名截止10月18日。",
+      "reference": {
+        "event": "团队季度团建",
+        "date": "10月24日",
+        "time": "上午9:30",
+        "location": "滨江森林公园东门",
+        "deadline": "10月18日"
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "mustBeEmpty": [],
+      "critical": [
+        "date",
+        "deadline"
+      ],
+      "note": "活动日与报名截止日并存"
+    },
+    {
+      "id": "M01",
+      "category": "missing",
+      "input": "请于10月12日提交实验报告，具体提交时间另行通知。",
+      "reference": {
+        "event": "实验报告提交",
+        "date": "10月12日",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "经典案例：具体时间另行通知，补出任何钟点（如18:00）即为凭空捏造"
+    },
+    {
+      "id": "M02",
+      "category": "missing",
+      "input": "公司中秋晚会即将举办，具体日期和地点确定后另行通知，请留意群消息。",
+      "reference": {
+        "event": "公司中秋晚会",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "仅事项名确定，四字段全空"
+    },
+    {
+      "id": "M03",
+      "category": "missing",
+      "input": "考研经验分享会定于本周四在第一教学楼201举行，具体时间另行通知。",
+      "reference": {
+        "event": "考研经验分享会",
+        "date": "本周四",
+        "time": "",
+        "location": "第一教学楼201",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "deadline"
+      ],
+      "critical": [
+        "time",
+        "deadline"
+      ],
+      "note": "「具体时间另行通知」不得补钟点"
+    },
+    {
+      "id": "M04",
+      "category": "missing",
+      "input": "下周一召开全员大会，会议地点随后通知。",
+      "reference": {
+        "event": "全员大会",
+        "date": "下周一",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "地点随后通知，不得猜会议室"
+    },
+    {
+      "id": "M05",
+      "category": "missing",
+      "input": "软件发布庆祝活动正在筹备中，日期、地点均未确定，欢迎关注后续通知。",
+      "reference": {
+        "event": "软件发布庆祝活动",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "全部未定"
+    },
+    {
+      "id": "M06",
+      "category": "missing",
+      "input": "请各部门在10月30日前完成年度总结并提交至OA系统。",
+      "reference": {
+        "event": "年度总结提交",
+        "date": "10月30日",
+        "time": "",
+        "location": "OA系统",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "deadline"
+      ],
+      "critical": [
+        "time",
+        "deadline"
+      ],
+      "note": "唯一时间点填 date；不得发明具体截止钟点"
+    },
+    {
+      "id": "M07",
+      "category": "missing",
+      "input": "体检通知：本次体检不设统一时间，请各位员工于10月26日前自行前往校医院预约。",
+      "reference": {
+        "event": "体检",
+        "date": "10月26日",
+        "time": "",
+        "location": "校医院",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "deadline"
+      ],
+      "critical": [
+        "time",
+        "deadline"
+      ],
+      "note": "「不设统一时间」是明示陷阱，不得编造时段"
+    },
+    {
+      "id": "M08",
+      "category": "missing",
+      "input": "校运会开幕式因场地原因延期举行，新日期待定。",
+      "reference": {
+        "event": "校运会开幕式",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "延期后日期待定，不得沿用或编造任何日期"
+    },
+    {
+      "id": "M09",
+      "category": "missing",
+      "input": "新书发布会将在线上举行，直播平台与开始时间尚未确定。",
+      "reference": {
+        "event": "新书发布会",
+        "date": "",
+        "time": "",
+        "location": "线上",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "deadline"
+      ],
+      "note": "平台未知，不得补「腾讯会议」等具体平台或时间"
+    },
+    {
+      "id": "M10",
+      "category": "missing",
+      "input": "图书馆馆长面对面交流活动将于近期举行，具体时间地点请关注图书馆公众号。",
+      "reference": {
+        "event": "馆长面对面交流活动",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "「近期」不构成日期，应留空"
+    },
+    {
+      "id": "A01",
+      "category": "ambiguous",
+      "input": "社团例会定在下周五晚上，地点还是老地方。",
+      "reference": {
+        "event": "社团例会",
+        "date": "下周五",
+        "time": "晚上",
+        "location": "老地方",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location"
+      ],
+      "note": "相对表述原样输出：不得把「下周五」换算成具体日期、不得把「晚上」写成具体钟点"
+    },
+    {
+      "id": "A02",
+      "category": "ambiguous",
+      "input": "公司年会初步定在12月底，具体日期投票后另行通知。",
+      "reference": {
+        "event": "公司年会",
+        "date": "12月底",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "「12月底」不得精确化为 12月31日 等"
+    },
+    {
+      "id": "A03",
+      "category": "ambiguous",
+      "input": "义务植树活动时间：明天上午，集合点为学校北门。",
+      "reference": {
+        "event": "义务植树活动",
+        "date": "明天",
+        "time": "上午",
+        "location": "学校北门",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location"
+      ],
+      "note": "「明天上午」不得换算为具体日期钟点"
+    },
+    {
+      "id": "A04",
+      "category": "ambiguous",
+      "input": "羽毛球比赛延期一周举行，新的比赛日期待主办方确认后公布。",
+      "reference": {
+        "event": "羽毛球比赛",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "「延期一周」不等于可推算出新日期，禁止 +7 天推算"
+    },
+    {
+      "id": "A05",
+      "category": "ambiguous",
+      "input": "周报提交：每周五下班前提交给项目经理。",
+      "reference": {
+        "event": "周报提交",
+        "date": "每周五",
+        "time": "下班前",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time"
+      ],
+      "mustBeEmpty": [
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location"
+      ],
+      "note": "「下班前」不得写成 18:00"
+    },
+    {
+      "id": "A06",
+      "category": "ambiguous",
+      "input": "班级聚餐定在这周五晚上，餐厅群里再通知。",
+      "reference": {
+        "event": "班级聚餐",
+        "date": "这周五",
+        "time": "晚上",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time"
+      ],
+      "mustBeEmpty": [
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "餐厅未定，不得猜店名"
+    },
+    {
+      "id": "A07",
+      "category": "ambiguous",
+      "input": "毕业照拍摄暂定下个月，具体时间另行安排。",
+      "reference": {
+        "event": "毕业照拍摄",
+        "date": "下个月",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "「下个月」不得展开为具体月份日期"
+    },
+    {
+      "id": "A08",
+      "category": "ambiguous",
+      "input": "系统升级维护预计持续到今晚，恢复时间视情况另行通知。",
+      "reference": {
+        "event": "系统升级维护",
+        "date": "",
+        "time": "今晚",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "time"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "location",
+        "deadline"
+      ],
+      "note": "维护已在进行中，开始日期未给（date 留空）；「今晚」是时间点；恢复时间未给不得编造（10/7 试跑后人工标定：date/time 二选一时取 time）"
+    },
+    {
+      "id": "V01",
+      "category": "adversarial",
+      "input": "原定10月10日的科普讲座因故改期至10月17日下午2:00，地点不变，仍在科技馆一楼报告厅。",
+      "reference": {
+        "event": "科普讲座",
+        "date": "10月17日",
+        "time": "下午2:00",
+        "location": "科技馆一楼报告厅",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "改期取新日期；10月10日是干扰项"
+    },
+    {
+      "id": "V02",
+      "category": "adversarial",
+      "input": "讲座地点由二教201调整为一教101，时间仍为10月14日上午9:00。",
+      "reference": {
+        "event": "讲座",
+        "date": "10月14日",
+        "time": "上午9:00",
+        "location": "一教101",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "location",
+        "date"
+      ],
+      "note": "地点取调整后的一教101；二教201是干扰项"
+    },
+    {
+      "id": "V03",
+      "category": "adversarial",
+      "input": "本次技术沙龙不设线上参会，线下地点为创业园2栋路演厅，时间为10月16日晚7:00。",
+      "reference": {
+        "event": "技术沙龙",
+        "date": "10月16日",
+        "time": "晚7:00",
+        "location": "创业园2栋路演厅",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "location"
+      ],
+      "note": "「不设线上参会」是反向干扰：不得输出线上/腾讯会议等"
+    },
+    {
+      "id": "V04",
+      "category": "adversarial",
+      "input": "创新创业大赛决赛将于10月28日举行；进入决赛的队伍须在10月20日中午12:00前提交路演PPT。",
+      "reference": {
+        "event": "创新创业大赛决赛",
+        "date": "10月28日",
+        "time": "",
+        "location": "",
+        "deadline": "10月20日中午12:00前"
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "deadline"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location"
+      ],
+      "critical": [
+        "date",
+        "deadline"
+      ],
+      "note": "活动日(10月28)与材料截止(10月20)两个日期不得互换；决赛当日时间未给，time 留空"
+    },
+    {
+      "id": "V05",
+      "category": "adversarial",
+      "input": "原定10月12日举行的迎新足球赛因天气原因取消，是否补赛另行通知。",
+      "reference": {
+        "event": "迎新足球赛",
+        "date": "",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event"
+      ],
+      "mustBeEmpty": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location",
+        "deadline"
+      ],
+      "note": "活动已取消：10月12日不得再作为活动日期输出"
+    },
+    {
+      "id": "V06",
+      "category": "adversarial",
+      "input": "健身操课第三次改期：由周三改到周五晚上8:00，又因场地冲突最终定在周六上午10:00，地点为健身房B区。",
+      "reference": {
+        "event": "健身操课",
+        "date": "周六",
+        "time": "上午10:00",
+        "location": "健身房B区",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "date",
+        "time",
+        "location"
+      ],
+      "note": "多次改期取最终安排（周六上午10:00）；周三/周五是干扰项"
+    },
+    {
+      "id": "V07",
+      "category": "adversarial",
+      "input": "征稿截止时间调整：原截稿日10月15日作废，新截稿日为10月18日。",
+      "reference": {
+        "event": "征稿",
+        "date": "10月18日",
+        "time": "",
+        "location": "",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date"
+      ],
+      "mustBeEmpty": [
+        "time",
+        "location",
+        "deadline"
+      ],
+      "critical": [
+        "date"
+      ],
+      "note": "作废的 10月15日 是干扰项，取新截稿日"
+    },
+    {
+      "id": "V08",
+      "category": "adversarial",
+      "input": "新员工培训改为线上腾讯会议进行（会议号开课前群内通知），无需再前往原场地培训中心；时间仍为10月21日下午3:00。",
+      "reference": {
+        "event": "新员工培训",
+        "date": "10月21日",
+        "time": "下午3:00",
+        "location": "线上腾讯会议",
+        "deadline": ""
+      },
+      "mustExtract": [
+        "event",
+        "date",
+        "time",
+        "location"
+      ],
+      "mustBeEmpty": [
+        "deadline"
+      ],
+      "critical": [
+        "location",
+        "date"
+      ],
+      "note": "培训中心是已作废场地，取线上腾讯会议"
+    }
+  ],
+  "records": {
+    "old": [
+      {
+        "versionId": "old",
+        "sampleId": "N01",
+        "rep": 1,
+        "raw": "{\"event\":\"秋季运动会\",\"date\":\"10月15日\",\"time\":\"下午2:00\",\"location\":\"学校田径场\",\"deadline\":\"10月10日\"}",
+        "parsed": {
+          "event": "秋季运动会",
+          "date": "10月15日",
+          "time": "下午2:00",
+          "location": "学校田径场",
+          "deadline": "10月10日"
+        },
+        "parseError": null,
+        "latencyMs": 954,
+        "usage": {
+          "promptTokens": 356,
+          "completionTokens": 35
+        },
+        "costCNY": 0.0009919999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N01",
+        "rep": 2,
+        "raw": "{\"event\":\"秋季运动会\",\"date\":\"10月15日\",\"time\":\"下午2:00\",\"location\":\"学校田径场\",\"deadline\":\"10月10日\"}",
+        "parsed": {
+          "event": "秋季运动会",
+          "date": "10月15日",
+          "time": "下午2:00",
+          "location": "学校田径场",
+          "deadline": "10月10日"
+        },
+        "parseError": null,
+        "latencyMs": 902,
+        "usage": {
+          "promptTokens": 356,
+          "completionTokens": 35
+        },
+        "costCNY": 0.0009919999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N01",
+        "rep": 3,
+        "raw": "{\"event\":\"秋季运动会\",\"date\":\"10月15日\",\"time\":\"下午2:00\",\"location\":\"学校田径场\",\"deadline\":\"10月10日\"}",
+        "parsed": {
+          "event": "秋季运动会",
+          "date": "10月15日",
+          "time": "下午2:00",
+          "location": "学校田径场",
+          "deadline": "10月10日"
+        },
+        "parseError": null,
+        "latencyMs": 718,
+        "usage": {
+          "promptTokens": 356,
+          "completionTokens": 35
+        },
+        "costCNY": 0.0009919999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N02",
+        "rep": 1,
+        "raw": "{\"event\":\"AI大模型技术讲座\",\"date\":\"10月9日\",\"time\":\"晚上7:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "AI大模型技术讲座",
+          "date": "10月9日",
+          "time": "晚上7:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 867,
+        "usage": {
+          "promptTokens": 349,
+          "completionTokens": 36
+        },
+        "costCNY": 0.0009860000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N02",
+        "rep": 2,
+        "raw": "{\"event\":\"AI大模型技术讲座\",\"date\":\"10月9日\",\"time\":\"晚上7:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "AI大模型技术讲座",
+          "date": "10月9日",
+          "time": "晚上7:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 786,
+        "usage": {
+          "promptTokens": 349,
+          "completionTokens": 75
+        },
+        "costCNY": 0.0012980000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N02",
+        "rep": 3,
+        "raw": "{\"event\":\"AI大模型技术讲座\",\"date\":\"10月9日\",\"time\":\"晚上7:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "AI大模型技术讲座",
+          "date": "10月9日",
+          "time": "晚上7:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 696,
+        "usage": {
+          "promptTokens": 349,
+          "completionTokens": 36
+        },
+        "costCNY": 0.0009860000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N03",
+        "rep": 1,
+        "raw": "{\"event\":\"产品部双周例会\",\"date\":\"10月8日\",\"time\":\"上午10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "产品部双周例会",
+          "date": "10月8日",
+          "time": "上午10:00",
+          "location": "3楼A会议室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 750,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 36
+        },
+        "costCNY": 0.000974,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N03",
+        "rep": 2,
+        "raw": "{\"event\":\"产品部双周例会\",\"date\":\"10月8日\",\"time\":\"上午10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "产品部双周例会",
+          "date": "10月8日",
+          "time": "上午10:00",
+          "location": "3楼A会议室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 770,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 36
+        },
+        "costCNY": 0.000974,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N03",
+        "rep": 3,
+        "raw": "{\"event\":\"产品部双周例会\",\"date\":\"10月8日\",\"time\":\"上午10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "产品部双周例会",
+          "date": "10月8日",
+          "time": "上午10:00",
+          "location": "3楼A会议室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 961,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 36
+        },
+        "costCNY": 0.000974,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N04",
+        "rep": 1,
+        "raw": "{\"event\":\"「开源之夜」线上直播\",\"date\":\"10月11日\",\"time\":\"20:00\",\"location\":\"官方B站直播间\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "「开源之夜」线上直播",
+          "date": "10月11日",
+          "time": "20:00",
+          "location": "官方B站直播间",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 783,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 119
+        },
+        "costCNY": 0.0016380000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N04",
+        "rep": 2,
+        "raw": "{\"event\":\"开源之夜\",\"date\":\"10月11日\",\"time\":\"20:00\",\"location\":\"官方B站直播间\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "开源之夜",
+          "date": "10月11日",
+          "time": "20:00",
+          "location": "官方B站直播间",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 443,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 32
+        },
+        "costCNY": 0.0009419999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N04",
+        "rep": 3,
+        "raw": "{\"event\":\"「开源之夜」线上直播\",\"date\":\"10月11日\",\"time\":\"20:00\",\"location\":\"官方B站直播间\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "「开源之夜」线上直播",
+          "date": "10月11日",
+          "time": "20:00",
+          "location": "官方B站直播间",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 988,
+        "usage": {
+          "promptTokens": 343,
+          "completionTokens": 138
+        },
+        "costCNY": 0.00179,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N05",
+        "rep": 1,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"23:59\",\"location\":\"学习平台\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "23:59",
+          "location": "学习平台",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 2160,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 459
+        },
+        "costCNY": 0.004344,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N05",
+        "rep": 2,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"23:59\",\"location\":\"学习平台\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "23:59",
+          "location": "学习平台",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1248,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 194
+        },
+        "costCNY": 0.002224,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N05",
+        "rep": 3,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"23:59前\",\"location\":\"学习平台\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "23:59前",
+          "location": "学习平台",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1604,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 279
+        },
+        "costCNY": 0.002904,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N06",
+        "rep": 1,
+        "raw": "{\"event\":\"社区养老院志愿服务\",\"date\":\"10月20日\",\"time\":\"下午2:30\",\"location\":\"校门口\",\"deadline\":\"10月16日中午12:00\"}",
+        "parsed": {
+          "event": "社区养老院志愿服务",
+          "date": "10月20日",
+          "time": "下午2:30",
+          "location": "校门口",
+          "deadline": "10月16日中午12:00"
+        },
+        "parseError": null,
+        "latencyMs": 857,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 91
+        },
+        "costCNY": 0.0014160000000000002,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N06",
+        "rep": 2,
+        "raw": "{\"event\":\"社区养老院志愿服务\",\"date\":\"10月20日\",\"time\":\"下午2:30\",\"location\":\"校门口\",\"deadline\":\"10月16日中午12:00\"}",
+        "parsed": {
+          "event": "社区养老院志愿服务",
+          "date": "10月20日",
+          "time": "下午2:30",
+          "location": "校门口",
+          "deadline": "10月16日中午12:00"
+        },
+        "parseError": null,
+        "latencyMs": 852,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 40
+        },
+        "costCNY": 0.001008,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N06",
+        "rep": 3,
+        "raw": "{\"event\":\"社区养老院志愿服务\",\"date\":\"10月20日\",\"time\":\"下午2:30\",\"location\":\"校门口\",\"deadline\":\"10月16日中午12:00\"}",
+        "parsed": {
+          "event": "社区养老院志愿服务",
+          "date": "10月20日",
+          "time": "下午2:30",
+          "location": "校门口",
+          "deadline": "10月16日中午12:00"
+        },
+        "parseError": null,
+        "latencyMs": 887,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 152
+        },
+        "costCNY": 0.001904,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N07",
+        "rep": 1,
+        "raw": "{\"event\":\"新员工入职培训\",\"date\":\"10月13日至10月14日\",\"time\":\"每天上午9:00开始\",\"location\":\"总部大楼5层培训室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工入职培训",
+          "date": "10月13日至10月14日",
+          "time": "每天上午9:00开始",
+          "location": "总部大楼5层培训室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 2162,
+        "usage": {
+          "promptTokens": 346,
+          "completionTokens": 423
+        },
+        "costCNY": 0.004076,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N07",
+        "rep": 2,
+        "raw": "{\"event\":\"新员工入职培训\",\"date\":\"10月13日至10月14日\",\"time\":\"每天上午9:00开始\",\"location\":\"总部大楼5层培训室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工入职培训",
+          "date": "10月13日至10月14日",
+          "time": "每天上午9:00开始",
+          "location": "总部大楼5层培训室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1019,
+        "usage": {
+          "promptTokens": 346,
+          "completionTokens": 43
+        },
+        "costCNY": 0.001036,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N07",
+        "rep": 3,
+        "raw": "{\"event\":\"新员工入职培训\",\"date\":\"10月13日至10月14日\",\"time\":\"每天上午9:00开始\",\"location\":\"总部大楼5层培训室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工入职培训",
+          "date": "10月13日至10月14日",
+          "time": "每天上午9:00开始",
+          "location": "总部大楼5层培训室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 804,
+        "usage": {
+          "promptTokens": 346,
+          "completionTokens": 43
+        },
+        "costCNY": 0.001036,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N08",
+        "rep": 1,
+        "raw": "{\"event\":\"动漫社招新面试\",\"date\":\"10月10日\",\"time\":\"下午4:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "动漫社招新面试",
+          "date": "10月10日",
+          "time": "下午4:00",
+          "location": "学生活动中心201室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1114,
+        "usage": {
+          "promptTokens": 341,
+          "completionTokens": 141
+        },
+        "costCNY": 0.00181,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N08",
+        "rep": 2,
+        "raw": "{\"event\":\"动漫社招新面试\",\"date\":\"10月10日\",\"time\":\"下午4:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "动漫社招新面试",
+          "date": "10月10日",
+          "time": "下午4:00",
+          "location": "学生活动中心201室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 481,
+        "usage": {
+          "promptTokens": 341,
+          "completionTokens": 37
+        },
+        "costCNY": 0.000978,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N08",
+        "rep": 3,
+        "raw": "{\"event\":\"动漫社招新面试\",\"date\":\"10月10日\",\"time\":\"下午4:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "动漫社招新面试",
+          "date": "10月10日",
+          "time": "下午4:00",
+          "location": "学生活动中心201室",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 807,
+        "usage": {
+          "promptTokens": 341,
+          "completionTokens": 116
+        },
+        "costCNY": 0.0016099999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N09",
+        "rep": 1,
+        "raw": "{\"event\":\"数据库原理期中考试\",\"date\":\"10月17日（周五）\",\"time\":\"下午2:00-3:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "数据库原理期中考试",
+          "date": "10月17日（周五）",
+          "time": "下午2:00-3:40",
+          "location": "教学楼B栋302",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1103,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 113
+        },
+        "costCNY": 0.001594,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N09",
+        "rep": 2,
+        "raw": "{\"event\":\"数据库原理期中考试\",\"date\":\"10月17日（周五）\",\"time\":\"下午2:00-3:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "数据库原理期中考试",
+          "date": "10月17日（周五）",
+          "time": "下午2:00-3:40",
+          "location": "教学楼B栋302",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 763,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 105
+        },
+        "costCNY": 0.0015300000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N09",
+        "rep": 3,
+        "raw": "{\"event\":\"数据库原理期中考试\",\"date\":\"10月17日（周五）\",\"time\":\"下午2:00-3:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "数据库原理期中考试",
+          "date": "10月17日（周五）",
+          "time": "下午2:00-3:40",
+          "location": "教学楼B栋302",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1375,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 184
+        },
+        "costCNY": 0.002162,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N10",
+        "rep": 1,
+        "raw": "{\"event\":\"团队季度团建\",\"date\":\"10月24日（周六）\",\"time\":\"上午9:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"10月18日\"}",
+        "parsed": {
+          "event": "团队季度团建",
+          "date": "10月24日（周六）",
+          "time": "上午9:30",
+          "location": "滨江森林公园东门",
+          "deadline": "10月18日"
+        },
+        "parseError": null,
+        "latencyMs": 1384,
+        "usage": {
+          "promptTokens": 351,
+          "completionTokens": 224
+        },
+        "costCNY": 0.002494,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N10",
+        "rep": 2,
+        "raw": "{\"event\":\"团队季度团建\",\"date\":\"10月24日\",\"time\":\"上午9:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"10月18日\"}",
+        "parsed": {
+          "event": "团队季度团建",
+          "date": "10月24日",
+          "time": "上午9:30",
+          "location": "滨江森林公园东门",
+          "deadline": "10月18日"
+        },
+        "parseError": null,
+        "latencyMs": 914,
+        "usage": {
+          "promptTokens": 351,
+          "completionTokens": 84
+        },
+        "costCNY": 0.001374,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "N10",
+        "rep": 3,
+        "raw": "{\"event\":\"团队季度团建\",\"date\":\"10月24日（周六）\",\"time\":\"上午9:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"10月18日\"}",
+        "parsed": {
+          "event": "团队季度团建",
+          "date": "10月24日（周六）",
+          "time": "上午9:30",
+          "location": "滨江森林公园东门",
+          "deadline": "10月18日"
+        },
+        "parseError": null,
+        "latencyMs": 1878,
+        "usage": {
+          "promptTokens": 351,
+          "completionTokens": 300
+        },
+        "costCNY": 0.0031019999999999997,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M01",
+        "rep": 1,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 950,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 89
+        },
+        "costCNY": 0.001376,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M01",
+        "rep": 2,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 656,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 101
+        },
+        "costCNY": 0.001472,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M01",
+        "rep": 3,
+        "raw": "{\"event\":\"提交实验报告\",\"date\":\"10月12日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "提交实验报告",
+          "date": "10月12日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 973,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 109
+        },
+        "costCNY": 0.001536,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M02",
+        "rep": 1,
+        "raw": "{\"event\":\"中秋晚会\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "中秋晚会",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1526,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 134
+        },
+        "costCNY": 0.0017439999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M02",
+        "rep": 2,
+        "raw": "{\"event\":\"公司中秋晚会\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "公司中秋晚会",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 962,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 63
+        },
+        "costCNY": 0.001176,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M02",
+        "rep": 3,
+        "raw": "{\"event\":\"公司中秋晚会\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "公司中秋晚会",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 758,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 76
+        },
+        "costCNY": 0.0012799999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M03",
+        "rep": 1,
+        "raw": "{\"event\":\"考研经验分享会\",\"date\":\"本周四\",\"time\":\"\",\"location\":\"第一教学楼201\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "考研经验分享会",
+          "date": "本周四",
+          "time": "",
+          "location": "第一教学楼201",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1046,
+        "usage": {
+          "promptTokens": 334,
+          "completionTokens": 142
+        },
+        "costCNY": 0.001804,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M03",
+        "rep": 2,
+        "raw": "{\"event\":\"考研经验分享会\",\"date\":\"本周四\",\"time\":\"\",\"location\":\"第一教学楼201\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "考研经验分享会",
+          "date": "本周四",
+          "time": "",
+          "location": "第一教学楼201",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1004,
+        "usage": {
+          "promptTokens": 334,
+          "completionTokens": 124
+        },
+        "costCNY": 0.00166,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M03",
+        "rep": 3,
+        "raw": "{\"event\":\"考研经验分享会\",\"date\":\"本周四\",\"time\":\"\",\"location\":\"第一教学楼201\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "考研经验分享会",
+          "date": "本周四",
+          "time": "",
+          "location": "第一教学楼201",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1135,
+        "usage": {
+          "promptTokens": 334,
+          "completionTokens": 107
+        },
+        "costCNY": 0.001524,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M04",
+        "rep": 1,
+        "raw": "{\"event\":\"全员大会\",\"date\":\"下周一\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "全员大会",
+          "date": "下周一",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 883,
+        "usage": {
+          "promptTokens": 327,
+          "completionTokens": 80
+        },
+        "costCNY": 0.001294,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M04",
+        "rep": 2,
+        "raw": "{\"event\":\"全员大会\",\"date\":\"下周一\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "全员大会",
+          "date": "下周一",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 869,
+        "usage": {
+          "promptTokens": 327,
+          "completionTokens": 89
+        },
+        "costCNY": 0.001366,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M04",
+        "rep": 3,
+        "raw": "{\"event\":\"全员大会\",\"date\":\"下周一\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "全员大会",
+          "date": "下周一",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1050,
+        "usage": {
+          "promptTokens": 327,
+          "completionTokens": 45
+        },
+        "costCNY": 0.001014,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M05",
+        "rep": 1,
+        "raw": "{\"event\":\"软件发布庆祝活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "软件发布庆祝活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 976,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 65
+        },
+        "costCNY": 0.001192,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M05",
+        "rep": 2,
+        "raw": "{\"event\":\"软件发布庆祝活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "软件发布庆祝活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 726,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 45
+        },
+        "costCNY": 0.001032,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M05",
+        "rep": 3,
+        "raw": "{\"event\":\"软件发布庆祝活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "软件发布庆祝活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 984,
+        "usage": {
+          "promptTokens": 336,
+          "completionTokens": 103
+        },
+        "costCNY": 0.001496,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M06",
+        "rep": 1,
+        "raw": "{\"event\":\"年度总结\",\"date\":\"10月30日\",\"time\":\"\",\"location\":\"OA系统\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "年度总结",
+          "date": "10月30日",
+          "time": "",
+          "location": "OA系统",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 2171,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 358
+        },
+        "costCNY": 0.003528,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M06",
+        "rep": 2,
+        "raw": "{\"event\":\"年度总结\",\"date\":\"10月30日前\",\"time\":\"\",\"location\":\"OA系统\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "年度总结",
+          "date": "10月30日前",
+          "time": "",
+          "location": "OA系统",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 3133,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 527
+        },
+        "costCNY": 0.00488,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M06",
+        "rep": 3,
+        "raw": "{\"event\":\"年度总结\",\"date\":\"10月30日\",\"time\":\"\",\"location\":\"OA系统\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "年度总结",
+          "date": "10月30日",
+          "time": "",
+          "location": "OA系统",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1718,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 304
+        },
+        "costCNY": 0.0030960000000000002,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M07",
+        "rep": 1,
+        "raw": "{\"event\":\"体检\",\"date\":\"10月26日前\",\"time\":\"\",\"location\":\"校医院\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "体检",
+          "date": "10月26日前",
+          "time": "",
+          "location": "校医院",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 2493,
+        "usage": {
+          "promptTokens": 340,
+          "completionTokens": 472
+        },
+        "costCNY": 0.004456,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M07",
+        "rep": 2,
+        "raw": "{\"event\":\"体检\",\"date\":\"10月26日前\",\"time\":\"\",\"location\":\"校医院\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "体检",
+          "date": "10月26日前",
+          "time": "",
+          "location": "校医院",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 674,
+        "usage": {
+          "promptTokens": 340,
+          "completionTokens": 26
+        },
+        "costCNY": 0.000888,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M07",
+        "rep": 3,
+        "raw": "{\"event\":\"体检\",\"date\":\"10月26日前\",\"time\":\"\",\"location\":\"校医院\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "体检",
+          "date": "10月26日前",
+          "time": "",
+          "location": "校医院",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1706,
+        "usage": {
+          "promptTokens": 340,
+          "completionTokens": 244
+        },
+        "costCNY": 0.002632,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M08",
+        "rep": 1,
+        "raw": "{\"event\":\"校运会开幕式\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "校运会开幕式",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 700,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 77
+        },
+        "costCNY": 0.001276,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M08",
+        "rep": 2,
+        "raw": "{\"event\":\"校运会开幕式\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "校运会开幕式",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1370,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 178
+        },
+        "costCNY": 0.002084,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M08",
+        "rep": 3,
+        "raw": "{\"event\":\"校运会开幕式\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "校运会开幕式",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1160,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 101
+        },
+        "costCNY": 0.0014680000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M09",
+        "rep": 1,
+        "raw": "{\"event\":\"新书发布会\",\"date\":\"\",\"time\":\"\",\"location\":\"线上\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新书发布会",
+          "date": "",
+          "time": "",
+          "location": "线上",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 455,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 23
+        },
+        "costCNY": 0.0008460000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M09",
+        "rep": 2,
+        "raw": "{\"event\":\"新书发布会\",\"date\":\"\",\"time\":\"\",\"location\":\"线上\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新书发布会",
+          "date": "",
+          "time": "",
+          "location": "线上",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 910,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 60
+        },
+        "costCNY": 0.001142,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M09",
+        "rep": 3,
+        "raw": "{\"event\":\"新书发布会\",\"date\":\"\",\"time\":\"\",\"location\":\"线上\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新书发布会",
+          "date": "",
+          "time": "",
+          "location": "线上",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 509,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 23
+        },
+        "costCNY": 0.0008460000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M10",
+        "rep": 1,
+        "raw": "{\"event\":\"图书馆馆长面对面交流活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "图书馆馆长面对面交流活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 691,
+        "usage": {
+          "promptTokens": 333,
+          "completionTokens": 49
+        },
+        "costCNY": 0.001058,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M10",
+        "rep": 2,
+        "raw": "{\"event\":\"图书馆馆长面对面交流活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "图书馆馆长面对面交流活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 792,
+        "usage": {
+          "promptTokens": 333,
+          "completionTokens": 64
+        },
+        "costCNY": 0.001178,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "M10",
+        "rep": 3,
+        "raw": "{\"event\":\"图书馆馆长面对面交流活动\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "图书馆馆长面对面交流活动",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 627,
+        "usage": {
+          "promptTokens": 333,
+          "completionTokens": 60
+        },
+        "costCNY": 0.001146,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A01",
+        "rep": 1,
+        "raw": "{\"event\":\"社团例会\",\"date\":\"下周五\",\"time\":\"晚上\",\"location\":\"老地方\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "社团例会",
+          "date": "下周五",
+          "time": "晚上",
+          "location": "老地方",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1269,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 130
+        },
+        "costCNY": 0.001696,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A01",
+        "rep": 2,
+        "raw": "{\"event\":\"社团例会\",\"date\":\"下周五\",\"time\":\"晚上\",\"location\":\"老地方\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "社团例会",
+          "date": "下周五",
+          "time": "晚上",
+          "location": "老地方",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1200,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 126
+        },
+        "costCNY": 0.0016640000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A01",
+        "rep": 3,
+        "raw": "{\"event\":\"社团例会\",\"date\":\"下周五\",\"time\":\"晚上\",\"location\":\"老地方\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "社团例会",
+          "date": "下周五",
+          "time": "晚上",
+          "location": "老地方",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 2037,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 323
+        },
+        "costCNY": 0.00324,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A02",
+        "rep": 1,
+        "raw": "{\"event\":\"公司年会\",\"date\":\"12月底\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "公司年会",
+          "date": "12月底",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1201,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 192
+        },
+        "costCNY": 0.0021980000000000003,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A02",
+        "rep": 2,
+        "raw": "{\"event\":\"公司年会\",\"date\":\"12月底\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "公司年会",
+          "date": "12月底",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1476,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 188
+        },
+        "costCNY": 0.002166,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A02",
+        "rep": 3,
+        "raw": "{\"event\":\"公司年会\",\"date\":\"12月底\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "公司年会",
+          "date": "12月底",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1457,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 191
+        },
+        "costCNY": 0.00219,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A03",
+        "rep": 1,
+        "raw": "{\"event\":\"义务植树活动\",\"date\":\"明天\",\"time\":\"上午\",\"location\":\"学校北门\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "义务植树活动",
+          "date": "明天",
+          "time": "上午",
+          "location": "学校北门",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1074,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 103
+        },
+        "costCNY": 0.001484,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A03",
+        "rep": 2,
+        "raw": "{\"event\":\"义务植树活动\",\"date\":\"明天\",\"time\":\"上午\",\"location\":\"学校北门\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "义务植树活动",
+          "date": "明天",
+          "time": "上午",
+          "location": "学校北门",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1519,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 227
+        },
+        "costCNY": 0.002476,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A03",
+        "rep": 3,
+        "raw": "{\"event\":\"义务植树活动\",\"date\":\"明天\",\"time\":\"上午\",\"location\":\"学校北门\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "义务植树活动",
+          "date": "明天",
+          "time": "上午",
+          "location": "学校北门",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 700,
+        "usage": {
+          "promptTokens": 330,
+          "completionTokens": 27
+        },
+        "costCNY": 0.000876,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A04",
+        "rep": 1,
+        "raw": "{\"event\":\"羽毛球比赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "羽毛球比赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 859,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 74
+        },
+        "costCNY": 0.001256,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A04",
+        "rep": 2,
+        "raw": "{\"event\":\"羽毛球比赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "羽毛球比赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1191,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 99
+        },
+        "costCNY": 0.0014559999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A04",
+        "rep": 3,
+        "raw": "{\"event\":\"羽毛球比赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "羽毛球比赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1194,
+        "usage": {
+          "promptTokens": 332,
+          "completionTokens": 88
+        },
+        "costCNY": 0.0013679999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A05",
+        "rep": 1,
+        "raw": "{\"event\":\"周报提交\",\"date\":\"每周五\",\"time\":\"下班前\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "周报提交",
+          "date": "每周五",
+          "time": "下班前",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 4068,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 806
+        },
+        "costCNY": 0.007104,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A05",
+        "rep": 2,
+        "raw": "{\"event\":\"周报提交\",\"date\":\"\",\"time\":\"下班前\",\"location\":\"\",\"deadline\":\"每周五下班前\"}\n\nWait, I need to think about this. The notice says \"周报提交：每周五下班前提交给项目经理。\" There's no actual date — \"每周五\" is a recurring day, not a specific date. Hmm. The rule says date fills the core date. \"每周五\" is a date expression (day of week). Should I put \"每周五\" in date? The rule says values must be verbatim from the text. \"每周五下班前\" is the time given. There's only one time, so it fills date, deadline left empty? But actually the field \"date\" — \"每周五\" is a day, \"下班前\" is time. So date could be \"每周五\" and time \"下班前\".\n\nHmm, but rule 4 says: 通知只有一个时间时填 date，deadline 留空. Here there's date \"每周五\" and time \"下班前\". So date = \"每周五\", time = \"下班前\", deadline = \"\".\n\nLet me redo. My first output put both date empty and deadline filled which is wrong per rule 4.\n\nSo: {\"event\":\"周报提交\",\"date\":\"每周五\",\"time\":\"下班前\",\"location\":\"\",\"deadline\":\"\"}\n\nEvent: \"周报提交\" — the notice's named item. Good.\n\nOutput only JSON.{\"event\":\"周报提交\",\"date\":\"每周五\",\"time\":\"下班前\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": null,
+        "parseError": "JSON 解析失败: Unexpected non-whitespace character after JSON at position 75 (line 3 column 1)",
+        "latencyMs": 1847,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 333
+        },
+        "costCNY": 0.00332,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A05",
+        "rep": 3,
+        "raw": "{\"event\":\"周报提交\",\"date\":\"每周五\",\"time\":\"下班前\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "周报提交",
+          "date": "每周五",
+          "time": "下班前",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 3939,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 807
+        },
+        "costCNY": 0.007112,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A06",
+        "rep": 1,
+        "raw": "{\"event\":\"班级聚餐\",\"date\":\"这周五\",\"time\":\"晚上\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "班级聚餐",
+          "date": "这周五",
+          "time": "晚上",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 887,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 84
+        },
+        "costCNY": 0.001328,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A06",
+        "rep": 2,
+        "raw": "{\"event\":\"班级聚餐\",\"date\":\"这周五\",\"time\":\"晚上\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "班级聚餐",
+          "date": "这周五",
+          "time": "晚上",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 645,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 64
+        },
+        "costCNY": 0.001168,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A06",
+        "rep": 3,
+        "raw": "{\"event\":\"班级聚餐\",\"date\":\"这周五\",\"time\":\"晚上\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "班级聚餐",
+          "date": "这周五",
+          "time": "晚上",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1258,
+        "usage": {
+          "promptTokens": 328,
+          "completionTokens": 133
+        },
+        "costCNY": 0.0017200000000000002,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A07",
+        "rep": 1,
+        "raw": "{\"event\":\"毕业照拍摄\",\"date\":\"下个月\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "毕业照拍摄",
+          "date": "下个月",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1145,
+        "usage": {
+          "promptTokens": 329,
+          "completionTokens": 93
+        },
+        "costCNY": 0.001402,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A07",
+        "rep": 2,
+        "raw": "{\"event\":\"毕业照拍摄\",\"date\":\"下个月\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "毕业照拍摄",
+          "date": "下个月",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1087,
+        "usage": {
+          "promptTokens": 329,
+          "completionTokens": 99
+        },
+        "costCNY": 0.00145,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A07",
+        "rep": 3,
+        "raw": "{\"event\":\"毕业照拍摄\",\"date\":\"下个月\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "毕业照拍摄",
+          "date": "下个月",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1172,
+        "usage": {
+          "promptTokens": 329,
+          "completionTokens": 196
+        },
+        "costCNY": 0.0022259999999999997,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A08",
+        "rep": 1,
+        "raw": "{\"event\":\"系统升级维护\",\"date\":\"\",\"time\":\"今晚\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "系统升级维护",
+          "date": "",
+          "time": "今晚",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1468,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 218
+        },
+        "costCNY": 0.002406,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A08",
+        "rep": 2,
+        "raw": "{\"event\":\"系统升级维护\",\"date\":\"\",\"time\":\"今晚\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "系统升级维护",
+          "date": "",
+          "time": "今晚",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1570,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 256
+        },
+        "costCNY": 0.0027099999999999997,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "A08",
+        "rep": 3,
+        "raw": "{\"event\":\"系统升级维护\",\"date\":\"今晚\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "系统升级维护",
+          "date": "今晚",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1612,
+        "usage": {
+          "promptTokens": 331,
+          "completionTokens": 199
+        },
+        "costCNY": 0.002254,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V01",
+        "rep": 1,
+        "raw": "{\"event\":\"科普讲座\",\"date\":\"10月17日\",\"time\":\"下午2:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "科普讲座",
+          "date": "10月17日",
+          "time": "下午2:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1037,
+        "usage": {
+          "promptTokens": 347,
+          "completionTokens": 120
+        },
+        "costCNY": 0.001654,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V01",
+        "rep": 2,
+        "raw": "{\"event\":\"科普讲座\",\"date\":\"10月17日\",\"time\":\"下午2:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "科普讲座",
+          "date": "10月17日",
+          "time": "下午2:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 933,
+        "usage": {
+          "promptTokens": 347,
+          "completionTokens": 34
+        },
+        "costCNY": 0.000966,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V01",
+        "rep": 3,
+        "raw": "{\"event\":\"科普讲座\",\"date\":\"10月17日\",\"time\":\"下午2:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "科普讲座",
+          "date": "10月17日",
+          "time": "下午2:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1109,
+        "usage": {
+          "promptTokens": 347,
+          "completionTokens": 121
+        },
+        "costCNY": 0.0016619999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V02",
+        "rep": 1,
+        "raw": "{\"event\":\"讲座\",\"date\":\"10月14日\",\"time\":\"上午9:00\",\"location\":\"一教101\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "讲座",
+          "date": "10月14日",
+          "time": "上午9:00",
+          "location": "一教101",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 715,
+        "usage": {
+          "promptTokens": 338,
+          "completionTokens": 31
+        },
+        "costCNY": 0.0009239999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V02",
+        "rep": 2,
+        "raw": "{\"event\":\"讲座\",\"date\":\"10月14日\",\"time\":\"上午9:00\",\"location\":\"一教101\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "讲座",
+          "date": "10月14日",
+          "time": "上午9:00",
+          "location": "一教101",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 913,
+        "usage": {
+          "promptTokens": 338,
+          "completionTokens": 147
+        },
+        "costCNY": 0.001852,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V02",
+        "rep": 3,
+        "raw": "{\"event\":\"讲座\",\"date\":\"10月14日\",\"time\":\"上午9:00\",\"location\":\"一教101\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "讲座",
+          "date": "10月14日",
+          "time": "上午9:00",
+          "location": "一教101",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 991,
+        "usage": {
+          "promptTokens": 338,
+          "completionTokens": 89
+        },
+        "costCNY": 0.001388,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V03",
+        "rep": 1,
+        "raw": "{\"event\":\"技术沙龙\",\"date\":\"10月16日\",\"time\":\"晚7:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "技术沙龙",
+          "date": "10月16日",
+          "time": "晚7:00",
+          "location": "创业园2栋路演厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 574,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 36
+        },
+        "costCNY": 0.0009760000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V03",
+        "rep": 2,
+        "raw": "{\"event\":\"技术沙龙\",\"date\":\"10月16日\",\"time\":\"晚7:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "技术沙龙",
+          "date": "10月16日",
+          "time": "晚7:00",
+          "location": "创业园2栋路演厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1212,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 132
+        },
+        "costCNY": 0.001744,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V03",
+        "rep": 3,
+        "raw": "{\"event\":\"技术沙龙\",\"date\":\"10月16日\",\"time\":\"晚7:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "技术沙龙",
+          "date": "10月16日",
+          "time": "晚7:00",
+          "location": "创业园2栋路演厅",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1047,
+        "usage": {
+          "promptTokens": 344,
+          "completionTokens": 74
+        },
+        "costCNY": 0.0012799999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V04",
+        "rep": 1,
+        "raw": "{\"event\":\"创新创业大赛决赛\",\"date\":\"10月28日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"10月20日中午12:00\"}",
+        "parsed": {
+          "event": "创新创业大赛决赛",
+          "date": "10月28日",
+          "time": "",
+          "location": "",
+          "deadline": "10月20日中午12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1446,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 114
+        },
+        "costCNY": 0.0016020000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V04",
+        "rep": 2,
+        "raw": "{\"event\":\"创新创业大赛决赛\",\"date\":\"10月28日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"10月20日中午12:00前\"}",
+        "parsed": {
+          "event": "创新创业大赛决赛",
+          "date": "10月28日",
+          "time": "",
+          "location": "",
+          "deadline": "10月20日中午12:00前"
+        },
+        "parseError": null,
+        "latencyMs": 1545,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 215
+        },
+        "costCNY": 0.00241,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V04",
+        "rep": 3,
+        "raw": "{\"event\":\"创新创业大赛决赛\",\"date\":\"10月28日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"10月20日中午12:00前\"}",
+        "parsed": {
+          "event": "创新创业大赛决赛",
+          "date": "10月28日",
+          "time": "",
+          "location": "",
+          "deadline": "10月20日中午12:00前"
+        },
+        "parseError": null,
+        "latencyMs": 1809,
+        "usage": {
+          "promptTokens": 345,
+          "completionTokens": 307
+        },
+        "costCNY": 0.003146,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V05",
+        "rep": 1,
+        "raw": "{\"event\":\"迎新足球赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "迎新足球赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1078,
+        "usage": {
+          "promptTokens": 337,
+          "completionTokens": 125
+        },
+        "costCNY": 0.0016740000000000001,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V05",
+        "rep": 2,
+        "raw": "{\"event\":\"迎新足球赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "迎新足球赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1305,
+        "usage": {
+          "promptTokens": 337,
+          "completionTokens": 131
+        },
+        "costCNY": 0.001722,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V05",
+        "rep": 3,
+        "raw": "{\"event\":\"迎新足球赛\",\"date\":\"\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "迎新足球赛",
+          "date": "",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 921,
+        "usage": {
+          "promptTokens": 337,
+          "completionTokens": 100
+        },
+        "costCNY": 0.001474,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V06",
+        "rep": 1,
+        "raw": "{\"event\":\"健身操课\",\"date\":\"周六\",\"time\":\"上午10:00\",\"location\":\"健身房B区\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "健身操课",
+          "date": "周六",
+          "time": "上午10:00",
+          "location": "健身房B区",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 873,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 130
+        },
+        "costCNY": 0.0017439999999999999,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V06",
+        "rep": 2,
+        "raw": "{\"event\":\"健身操课\",\"date\":\"周六\",\"time\":\"上午10:00\",\"location\":\"健身房B区\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "健身操课",
+          "date": "周六",
+          "time": "上午10:00",
+          "location": "健身房B区",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1401,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 127
+        },
+        "costCNY": 0.00172,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V06",
+        "rep": 3,
+        "raw": "{\"event\":\"健身操课\",\"date\":\"周六\",\"time\":\"上午10:00\",\"location\":\"健身房B区\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "健身操课",
+          "date": "周六",
+          "time": "上午10:00",
+          "location": "健身房B区",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1018,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 99
+        },
+        "costCNY": 0.001496,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V07",
+        "rep": 1,
+        "raw": "{\"event\":\"征稿\",\"date\":\"10月18日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "征稿",
+          "date": "10月18日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1796,
+        "usage": {
+          "promptTokens": 342,
+          "completionTokens": 236
+        },
+        "costCNY": 0.002572,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V07",
+        "rep": 2,
+        "raw": "{\"event\":\"征稿\",\"date\":\"10月18日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "征稿",
+          "date": "10月18日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1747,
+        "usage": {
+          "promptTokens": 342,
+          "completionTokens": 251
+        },
+        "costCNY": 0.002692,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V07",
+        "rep": 3,
+        "raw": "{\"event\":\"征稿\",\"date\":\"10月18日\",\"time\":\"\",\"location\":\"\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "征稿",
+          "date": "10月18日",
+          "time": "",
+          "location": "",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1855,
+        "usage": {
+          "promptTokens": 342,
+          "completionTokens": 289
+        },
+        "costCNY": 0.002996,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V08",
+        "rep": 1,
+        "raw": "{\"event\":\"新员工培训\",\"date\":\"10月21日\",\"time\":\"下午3:00\",\"location\":\"线上腾讯会议\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工培训",
+          "date": "10月21日",
+          "time": "下午3:00",
+          "location": "线上腾讯会议",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 888,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 33
+        },
+        "costCNY": 0.000968,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V08",
+        "rep": 2,
+        "raw": "{\"event\":\"新员工培训\",\"date\":\"10月21日\",\"time\":\"下午3:00\",\"location\":\"线上腾讯会议\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工培训",
+          "date": "10月21日",
+          "time": "下午3:00",
+          "location": "线上腾讯会议",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 1049,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 103
+        },
+        "costCNY": 0.0015279999999999998,
+        "error": null
+      },
+      {
+        "versionId": "old",
+        "sampleId": "V08",
+        "rep": 3,
+        "raw": "{\"event\":\"新员工培训\",\"date\":\"10月21日\",\"time\":\"下午3:00\",\"location\":\"线上腾讯会议\",\"deadline\":\"\"}",
+        "parsed": {
+          "event": "新员工培训",
+          "date": "10月21日",
+          "time": "下午3:00",
+          "location": "线上腾讯会议",
+          "deadline": ""
+        },
+        "parseError": null,
+        "latencyMs": 797,
+        "usage": {
+          "promptTokens": 352,
+          "completionTokens": 33
+        },
+        "costCNY": 0.000968,
+        "error": null
+      }
+    ],
+    "new": [
+      {
+        "versionId": "new",
+        "sampleId": "N01",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年秋季运动会\",\"date\":\"2026年10月15日\",\"time\":\"14:00\",\"location\":\"学校田径场\",\"deadline\":\"2026年10月10日 18:00\"}",
+        "parsed": {
+          "event": "2026年秋季运动会",
+          "date": "2026年10月15日",
+          "time": "14:00",
+          "location": "学校田径场",
+          "deadline": "2026年10月10日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1648,
+        "usage": {
+          "promptTokens": 290,
+          "completionTokens": 243
+        },
+        "costCNY": 0.002524,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N01",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年秋季运动会\",\"date\":\"2026年10月15日\",\"time\":\"14:00\",\"location\":\"学校田径场\",\"deadline\":\"2026年10月10日 18:00\"}",
+        "parsed": {
+          "event": "2026年秋季运动会",
+          "date": "2026年10月15日",
+          "time": "14:00",
+          "location": "学校田径场",
+          "deadline": "2026年10月10日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1632,
+        "usage": {
+          "promptTokens": 290,
+          "completionTokens": 298
+        },
+        "costCNY": 0.0029639999999999996,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N01",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年秋季运动会\",\"date\":\"2026年10月15日\",\"time\":\"14:00\",\"location\":\"学校田径场\",\"deadline\":\"2026年10月10日 18:00\"}",
+        "parsed": {
+          "event": "2026年秋季运动会",
+          "date": "2026年10月15日",
+          "time": "14:00",
+          "location": "学校田径场",
+          "deadline": "2026年10月10日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1385,
+        "usage": {
+          "promptTokens": 290,
+          "completionTokens": 247
+        },
+        "costCNY": 0.002556,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N02",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年AI大模型技术讲座\",\"date\":\"2026年10月9日\",\"time\":\"19:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"无（无需报名）\"}",
+        "parsed": {
+          "event": "2026年AI大模型技术讲座",
+          "date": "2026年10月9日",
+          "time": "19:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": "无（无需报名）"
+        },
+        "parseError": null,
+        "latencyMs": 1180,
+        "usage": {
+          "promptTokens": 283,
+          "completionTokens": 193
+        },
+        "costCNY": 0.00211,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N02",
+        "rep": 2,
+        "raw": "{\"event\":\"AI大模型技术讲座\",\"date\":\"2026年10月9日\",\"time\":\"19:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"无需报名\"}",
+        "parsed": {
+          "event": "AI大模型技术讲座",
+          "date": "2026年10月9日",
+          "time": "19:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": "无需报名"
+        },
+        "parseError": null,
+        "latencyMs": 2247,
+        "usage": {
+          "promptTokens": 283,
+          "completionTokens": 347
+        },
+        "costCNY": 0.003342,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N02",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年AI大模型技术讲座\",\"date\":\"2026年10月9日\",\"time\":\"19:00\",\"location\":\"图书馆三楼报告厅\",\"deadline\":\"无需报名\"}",
+        "parsed": {
+          "event": "2026年AI大模型技术讲座",
+          "date": "2026年10月9日",
+          "time": "19:00",
+          "location": "图书馆三楼报告厅",
+          "deadline": "无需报名"
+        },
+        "parseError": null,
+        "latencyMs": 1806,
+        "usage": {
+          "promptTokens": 283,
+          "completionTokens": 324
+        },
+        "costCNY": 0.003158,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N03",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年产品部双周例会\",\"date\":\"2026年10月8日\",\"time\":\"10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"2026年10月8日 09:55\"}",
+        "parsed": {
+          "event": "2026年产品部双周例会",
+          "date": "2026年10月8日",
+          "time": "10:00",
+          "location": "3楼A会议室",
+          "deadline": "2026年10月8日 09:55"
+        },
+        "parseError": null,
+        "latencyMs": 1956,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 427
+        },
+        "costCNY": 0.0039700000000000004,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N03",
+        "rep": 2,
+        "raw": "{\"event\":\"产品部双周例会\",\"date\":\"2026年10月8日\",\"time\":\"10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"2026年10月8日 09:55\"}",
+        "parsed": {
+          "event": "产品部双周例会",
+          "date": "2026年10月8日",
+          "time": "10:00",
+          "location": "3楼A会议室",
+          "deadline": "2026年10月8日 09:55"
+        },
+        "parseError": null,
+        "latencyMs": 1996,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 272
+        },
+        "costCNY": 0.00273,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N03",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年产品部双周例会\",\"date\":\"2026年10月8日\",\"time\":\"10:00\",\"location\":\"3楼A会议室\",\"deadline\":\"2026年10月8日09:55（提前5分钟到场）\"}",
+        "parsed": {
+          "event": "2026年产品部双周例会",
+          "date": "2026年10月8日",
+          "time": "10:00",
+          "location": "3楼A会议室",
+          "deadline": "2026年10月8日09:55（提前5分钟到场）"
+        },
+        "parseError": null,
+        "latencyMs": 1033,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 163
+        },
+        "costCNY": 0.001858,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N04",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年「开源之夜」线上直播\",\"date\":\"2026年10月11日\",\"time\":\"20:00-22:00\",\"location\":\"官方B站直播间（线上）\",\"deadline\":\"2026年10月11日 20:00\"}",
+        "parsed": {
+          "event": "2026年「开源之夜」线上直播",
+          "date": "2026年10月11日",
+          "time": "20:00-22:00",
+          "location": "官方B站直播间（线上）",
+          "deadline": "2026年10月11日 20:00"
+        },
+        "parseError": null,
+        "latencyMs": 6358,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 1269
+        },
+        "costCNY": 0.010706,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N04",
+        "rep": 2,
+        "raw": "{\"event\":\"2026「开源之夜」线上直播\",\"date\":\"2026年10月11日\",\"time\":\"20:00\",\"location\":\"官方B站直播间（线上）\",\"deadline\":\"2026年10月11日 20:00\"}",
+        "parsed": {
+          "event": "2026「开源之夜」线上直播",
+          "date": "2026年10月11日",
+          "time": "20:00",
+          "location": "官方B站直播间（线上）",
+          "deadline": "2026年10月11日 20:00"
+        },
+        "parseError": null,
+        "latencyMs": 1986,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 282
+        },
+        "costCNY": 0.00281,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N04",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年「开源之夜」线上直播\",\"date\":\"2026年10月11日\",\"time\":\"20:00\",\"location\":\"官方B站直播间\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年「开源之夜」线上直播",
+          "date": "2026年10月11日",
+          "time": "20:00",
+          "location": "官方B站直播间",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 3251,
+        "usage": {
+          "promptTokens": 277,
+          "completionTokens": 507
+        },
+        "costCNY": 0.0046099999999999995,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N05",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年学习平台实验报告提交\",\"date\":\"2026年10月12日\",\"time\":\"23:59\",\"location\":\"学习平台（线上）\",\"deadline\":\"2026年10月12日 23:59\"}",
+        "parsed": {
+          "event": "2026年学习平台实验报告提交",
+          "date": "2026年10月12日",
+          "time": "23:59",
+          "location": "学习平台（线上）",
+          "deadline": "2026年10月12日 23:59"
+        },
+        "parseError": null,
+        "latencyMs": 1048,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 118
+        },
+        "costCNY": 0.001484,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N05",
+        "rep": 2,
+        "raw": "{\"event\":\"实验报告提交\",\"date\":\"2026-10-12\",\"time\":\"23:59\",\"location\":\"学习平台\",\"deadline\":\"2026-10-12 23:59\"}",
+        "parsed": {
+          "event": "实验报告提交",
+          "date": "2026-10-12",
+          "time": "23:59",
+          "location": "学习平台",
+          "deadline": "2026-10-12 23:59"
+        },
+        "parseError": null,
+        "latencyMs": 3424,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 678
+        },
+        "costCNY": 0.005964,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N05",
+        "rep": 3,
+        "raw": "{\"event\":\"实验报告提交\",\"date\":\"2026年10月12日\",\"time\":\"23:59\",\"location\":\"学习平台\",\"deadline\":\"2026年10月12日 23:59\"}",
+        "parsed": {
+          "event": "实验报告提交",
+          "date": "2026年10月12日",
+          "time": "23:59",
+          "location": "学习平台",
+          "deadline": "2026年10月12日 23:59"
+        },
+        "parseError": null,
+        "latencyMs": 4769,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 957
+        },
+        "costCNY": 0.008196,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N06",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年社区养老院志愿服务\",\"date\":\"2026年10月20日\",\"time\":\"14:30\",\"location\":\"校门口\",\"deadline\":\"2026年10月16日 12:00\"}",
+        "parsed": {
+          "event": "2026年社区养老院志愿服务",
+          "date": "2026年10月20日",
+          "time": "14:30",
+          "location": "校门口",
+          "deadline": "2026年10月16日 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 2500,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 445
+        },
+        "costCNY": 0.004116,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N06",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年社区养老院志愿服务\",\"date\":\"2026年10月20日\",\"time\":\"14:30\",\"location\":\"校门口\",\"deadline\":\"2026年10月16日 12:00\"}",
+        "parsed": {
+          "event": "2026年社区养老院志愿服务",
+          "date": "2026年10月20日",
+          "time": "14:30",
+          "location": "校门口",
+          "deadline": "2026年10月16日 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1075,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 235
+        },
+        "costCNY": 0.002436,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N06",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年社区养老院志愿服务\",\"date\":\"2026-10-20\",\"time\":\"14:30\",\"location\":\"校门口\",\"deadline\":\"2026-10-16 12:00\"}",
+        "parsed": {
+          "event": "2026年社区养老院志愿服务",
+          "date": "2026-10-20",
+          "time": "14:30",
+          "location": "校门口",
+          "deadline": "2026-10-16 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1480,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 284
+        },
+        "costCNY": 0.0028280000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N07",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年新员工入职培训\",\"date\":\"2026年10月13日至2026年10月14日\",\"time\":\"每日09:00开始\",\"location\":\"总部大楼5层培训室\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年新员工入职培训",
+          "date": "2026年10月13日至2026年10月14日",
+          "time": "每日09:00开始",
+          "location": "总部大楼5层培训室",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 2673,
+        "usage": {
+          "promptTokens": 280,
+          "completionTokens": 446
+        },
+        "costCNY": 0.004128,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N07",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年新员工入职培训\",\"date\":\"2026-10-13至2026-10-14\",\"time\":\"每天09:00开始\",\"location\":\"总部大楼5层培训室\",\"deadline\":\"2026-10-12 18:00\"}",
+        "parsed": {
+          "event": "2026年新员工入职培训",
+          "date": "2026-10-13至2026-10-14",
+          "time": "每天09:00开始",
+          "location": "总部大楼5层培训室",
+          "deadline": "2026-10-12 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1405,
+        "usage": {
+          "promptTokens": 280,
+          "completionTokens": 196
+        },
+        "costCNY": 0.0021279999999999997,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N07",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9186,
+        "usage": {
+          "promptTokens": 280,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016560000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N08",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年动漫社招新面试\",\"date\":\"2026年10月10日\",\"time\":\"16:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"2026年10月10日 20:00\"}",
+        "parsed": {
+          "event": "2026年动漫社招新面试",
+          "date": "2026年10月10日",
+          "time": "16:00",
+          "location": "学生活动中心201室",
+          "deadline": "2026年10月10日 20:00"
+        },
+        "parseError": null,
+        "latencyMs": 7957,
+        "usage": {
+          "promptTokens": 275,
+          "completionTokens": 1617
+        },
+        "costCNY": 0.013486,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N08",
+        "rep": 2,
+        "raw": "{\"event\":\"动漫社2026年招新面试\",\"date\":\"2026年10月10日\",\"time\":\"16:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "动漫社2026年招新面试",
+          "date": "2026年10月10日",
+          "time": "16:00",
+          "location": "学生活动中心201室",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5826,
+        "usage": {
+          "promptTokens": 275,
+          "completionTokens": 1110
+        },
+        "costCNY": 0.009430000000000001,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N08",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年动漫社招新面试\",\"date\":\"2026年10月10日\",\"time\":\"16:00\",\"location\":\"学生活动中心201室\",\"deadline\":\"2026年10月10日 16:00前\"}",
+        "parsed": {
+          "event": "2026年动漫社招新面试",
+          "date": "2026年10月10日",
+          "time": "16:00",
+          "location": "学生活动中心201室",
+          "deadline": "2026年10月10日 16:00前"
+        },
+        "parseError": null,
+        "latencyMs": 9383,
+        "usage": {
+          "promptTokens": 275,
+          "completionTokens": 1873
+        },
+        "costCNY": 0.015534000000000001,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N09",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年数据库原理期中考试\",\"date\":\"2026年10月17日\",\"time\":\"14:00-15:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年数据库原理期中考试",
+          "date": "2026年10月17日",
+          "time": "14:00-15:40",
+          "location": "教学楼B栋302",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 6548,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 1439
+        },
+        "costCNY": 0.012069999999999999,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N09",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年数据库原理期中考试\",\"date\":\"2026年10月17日\",\"time\":\"14:00-15:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年数据库原理期中考试",
+          "date": "2026年10月17日",
+          "time": "14:00-15:40",
+          "location": "教学楼B栋302",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 4710,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 917
+        },
+        "costCNY": 0.007894,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N09",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年数据库原理期中考试\",\"date\":\"2026年10月17日\",\"time\":\"14:00-15:40\",\"location\":\"教学楼B栋302\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年数据库原理期中考试",
+          "date": "2026年10月17日",
+          "time": "14:00-15:40",
+          "location": "教学楼B栋302",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 8962,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 1932
+        },
+        "costCNY": 0.016014,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N10",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年团队季度团建\",\"date\":\"2026-10-24\",\"time\":\"09:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"2026-10-18 18:00\"}",
+        "parsed": {
+          "event": "2026年团队季度团建",
+          "date": "2026-10-24",
+          "time": "09:30",
+          "location": "滨江森林公园东门",
+          "deadline": "2026-10-18 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 3938,
+        "usage": {
+          "promptTokens": 285,
+          "completionTokens": 893
+        },
+        "costCNY": 0.007714,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N10",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年团队季度团建\",\"date\":\"2026年10月24日\",\"time\":\"09:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"2026年10月18日 18:00\"}",
+        "parsed": {
+          "event": "2026年团队季度团建",
+          "date": "2026年10月24日",
+          "time": "09:30",
+          "location": "滨江森林公园东门",
+          "deadline": "2026年10月18日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 2662,
+        "usage": {
+          "promptTokens": 285,
+          "completionTokens": 556
+        },
+        "costCNY": 0.005018,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "N10",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年团队季度团建\",\"date\":\"2026年10月24日\",\"time\":\"9:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"2026年10月18日\"}\n\nWait — check year. The instruction says 未写年份的日期补全为「2026年」. But 10月24日（周六）— in 2026, Oct 24 is a Saturday? Let's check: 2026-10-24. Jan 1 2026 is Thursday. Let's compute: 2026 Oct 24. Known: 2024 Oct 24 was Thursday. 2025 Oct 24 Friday, 2026 Oct 24 Saturday. Yes, correct. So 2026 works.\n\nDeadline 10月18日, 2026 — Oct 18 2026 is Sunday. Fine.\n\nOutput JSON only.{\"event\":\"2026年团队季度团建\",\"date\":\"2026年10月24日\",\"time\":\"9:30\",\"location\":\"滨江森林公园东门\",\"deadline\":\"2026年10月18日\"}",
+        "parsed": null,
+        "parseError": "JSON 解析失败: Unexpected non-whitespace character after JSON at position 107 (line 3 column 1)",
+        "latencyMs": 1390,
+        "usage": {
+          "promptTokens": 285,
+          "completionTokens": 236
+        },
+        "costCNY": 0.002458,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M01",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年实验报告提交\",\"date\":\"2026年10月12日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026年10月12日18:00\"}",
+        "parsed": {
+          "event": "2026年实验报告提交",
+          "date": "2026年10月12日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026年10月12日18:00"
+        },
+        "parseError": null,
+        "latencyMs": 3198,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 597
+        },
+        "costCNY": 0.005308,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M01",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年实验报告提交\",\"date\":\"2026-10-12\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026-10-12 18:00\"}",
+        "parsed": {
+          "event": "2026年实验报告提交",
+          "date": "2026-10-12",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026-10-12 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 3731,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 722
+        },
+        "costCNY": 0.006308,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M01",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年实验报告提交\",\"date\":\"2026年10月12日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026年10月12日 18:00\"}",
+        "parsed": {
+          "event": "2026年实验报告提交",
+          "date": "2026年10月12日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026年10月12日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1296,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 182
+        },
+        "costCNY": 0.001988,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M02",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9956,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01654,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M02",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年公司中秋晚会\",\"date\":\"2026年9月25日",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 10104,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01654,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M02",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9297,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01654,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M03",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年考研经验分享会\",\"date\":\"2026年5月7日\",\"time\":\"18:00\",\"location\":\"第一教学楼201\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年考研经验分享会",
+          "date": "2026年5月7日",
+          "time": "18:00",
+          "location": "第一教学楼201",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 3865,
+        "usage": {
+          "promptTokens": 268,
+          "completionTokens": 715
+        },
+        "costCNY": 0.006256,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M03",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年考研经验分享会\",\"date\":\"2026年5月7日\",\"time\":\"18:00\",\"location\":\"第一教学楼201\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年考研经验分享会",
+          "date": "2026年5月7日",
+          "time": "18:00",
+          "location": "第一教学楼201",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 2940,
+        "usage": {
+          "promptTokens": 268,
+          "completionTokens": 500
+        },
+        "costCNY": 0.004536,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M03",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年考研经验分享会\",\"date\":\"2026-05-07\",\"time\":\"18:00\",\"location\":\"第一教学楼201\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年考研经验分享会",
+          "date": "2026-05-07",
+          "time": "18:00",
+          "location": "第一教学楼201",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5161,
+        "usage": {
+          "promptTokens": 268,
+          "completionTokens": 1011
+        },
+        "costCNY": 0.008624,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M04",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年全员大会\",\"date\":\"2026年5月11日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":null}",
+        "parsed": {
+          "event": "2026年全员大会",
+          "date": "2026年5月11日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": null
+        },
+        "parseError": null,
+        "latencyMs": 4304,
+        "usage": {
+          "promptTokens": 261,
+          "completionTokens": 913
+        },
+        "costCNY": 0.007826,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M04",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年全员大会\",\"date\":\"2026年5月11日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年全员大会",
+          "date": "2026年5月11日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 3085,
+        "usage": {
+          "promptTokens": 261,
+          "completionTokens": 460
+        },
+        "costCNY": 0.004202,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M04",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年全员大会\",\"date\":\"2026-05-11\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026-05-11 18:00前\"}",
+        "parsed": {
+          "event": "2026年全员大会",
+          "date": "2026-05-11",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026-05-11 18:00前"
+        },
+        "parseError": null,
+        "latencyMs": 6726,
+        "usage": {
+          "promptTokens": 261,
+          "completionTokens": 1389
+        },
+        "costCNY": 0.011634,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M05",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年软件发布庆祝活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年软件发布庆祝活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1420,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 157
+        },
+        "costCNY": 0.0017959999999999999,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M05",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年软件发布庆祝活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年软件发布庆祝活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1348,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 166
+        },
+        "costCNY": 0.0018679999999999999,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M05",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年软件发布庆祝活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年软件发布庆祝活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1381,
+        "usage": {
+          "promptTokens": 270,
+          "completionTokens": 139
+        },
+        "costCNY": 0.0016519999999999998,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M06",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年度部门年度总结提交\",\"date\":\"2026年10月30日\",\"time\":\"18:00\",\"location\":\"OA系统（线上）\",\"deadline\":\"2026年10月30日 18:00\"}",
+        "parsed": {
+          "event": "2026年度部门年度总结提交",
+          "date": "2026年10月30日",
+          "time": "18:00",
+          "location": "OA系统（线上）",
+          "deadline": "2026年10月30日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 4239,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 770
+        },
+        "costCNY": 0.006692,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M06",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年度部门年度总结提交\",\"date\":\"2026年10月30日\",\"time\":\"18:00\",\"location\":\"OA系统（线上）\",\"deadline\":\"2026年10月30日 18:00\"}",
+        "parsed": {
+          "event": "2026年度部门年度总结提交",
+          "date": "2026年10月30日",
+          "time": "18:00",
+          "location": "OA系统（线上）",
+          "deadline": "2026年10月30日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 1584,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 228
+        },
+        "costCNY": 0.002356,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M06",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年度各部门年度总结提交\",\"date\":\"2026-10-30\",\"time\":\"18:00\",\"location\":\"OA系统（线上）\",\"deadline\":\"2026-10-30 18:00\"}",
+        "parsed": {
+          "event": "2026年度各部门年度总结提交",
+          "date": "2026-10-30",
+          "time": "18:00",
+          "location": "OA系统（线上）",
+          "deadline": "2026-10-30 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 6067,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 1366
+        },
+        "costCNY": 0.01146,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M07",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 8673,
+        "usage": {
+          "promptTokens": 274,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016548,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M07",
+        "rep": 2,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9028,
+        "usage": {
+          "promptTokens": 274,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016548,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M07",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9240,
+        "usage": {
+          "promptTokens": 274,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016548,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M08",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年校运会开幕式\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年校运会开幕式",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5045,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 926
+        },
+        "costCNY": 0.007936,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M08",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年校运动会开幕式\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年校运动会开幕式",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 2353,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 498
+        },
+        "costCNY": 0.0045119999999999995,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M08",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年校运动会开幕式\",\"date\":\"待定\",\"time\":\"待定\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年校运动会开幕式",
+          "date": "待定",
+          "time": "待定",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 2379,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 385
+        },
+        "costCNY": 0.003608,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M09",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9987,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01653,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M09",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年线上新书发布会\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年线上新书发布会",
+          "date": "待定",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1454,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 182
+        },
+        "costCNY": 0.001986,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M09",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9678,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01653,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M10",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年图书馆馆长面对面交流活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年图书馆馆长面对面交流活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 2183,
+        "usage": {
+          "promptTokens": 267,
+          "completionTokens": 390
+        },
+        "costCNY": 0.003654,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M10",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年图书馆馆长面对面交流活动\",\"date\":\"待定（近期，具体日期见图书馆公众号通知）\",\"time\":\"18:00\",\"location\":\"图书馆（具体地点见图书馆公众号通知）\",\"deadline\":\"待定（以图书馆公众号通知为准）\"}",
+        "parsed": {
+          "event": "2026年图书馆馆长面对面交流活动",
+          "date": "待定（近期，具体日期见图书馆公众号通知）",
+          "time": "18:00",
+          "location": "图书馆（具体地点见图书馆公众号通知）",
+          "deadline": "待定（以图书馆公众号通知为准）"
+        },
+        "parseError": null,
+        "latencyMs": 2593,
+        "usage": {
+          "promptTokens": 267,
+          "completionTokens": 417
+        },
+        "costCNY": 0.00387,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "M10",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年图书馆馆长面对面交流活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年图书馆馆长面对面交流活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 1866,
+        "usage": {
+          "promptTokens": 267,
+          "completionTokens": 309
+        },
+        "costCNY": 0.003006,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A01",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年社团例会\",\"date\":\"2026年5月15日\",\"time\":\"18:00\",\"location\":\"老地方\",\"deadline\":\"未注明\"}",
+        "parsed": {
+          "event": "2026年社团例会",
+          "date": "2026年5月15日",
+          "time": "18:00",
+          "location": "老地方",
+          "deadline": "未注明"
+        },
+        "parseError": null,
+        "latencyMs": 6236,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 1293
+        },
+        "costCNY": 0.010868000000000001,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A01",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年社团例会\",\"date\":\"2026年1月16日（周五）\",\"time\":\"18:00\",\"location\":\"待定（沿用以往地点）\",\"deadline\":\"2026年1月16日 18:00\"}",
+        "parsed": {
+          "event": "2026年社团例会",
+          "date": "2026年1月16日（周五）",
+          "time": "18:00",
+          "location": "待定（沿用以往地点）",
+          "deadline": "2026年1月16日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 2917,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 545
+        },
+        "costCNY": 0.004884,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A01",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9845,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016524,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A02",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年公司年会\",\"date\":\"2026年12月底\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年公司年会",
+          "date": "2026年12月底",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 2745,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 449
+        },
+        "costCNY": 0.004122,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A02",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年公司年会\",\"date\":\"2026年12月底\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年公司年会",
+          "date": "2026年12月底",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 5894,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 1159
+        },
+        "costCNY": 0.009802,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A02",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年公司年会\",\"date\":\"2026年12月26日（暂定12月底，具体日期投票后另行通知）\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026年12月10日（投票截止时间未明确，为预估日期）\"}",
+        "parsed": {
+          "event": "2026年公司年会",
+          "date": "2026年12月26日（暂定12月底，具体日期投票后另行通知）",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026年12月10日（投票截止时间未明确，为预估日期）"
+        },
+        "parseError": null,
+        "latencyMs": 3429,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 595
+        },
+        "costCNY": 0.00529,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A03",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年义务植树活动\",\"date\":\"2026年3月12日\",\"time\":\"09:00\",\"location\":\"学校北门\",\"deadline\":\"2026年3月12日 09:00\"}",
+        "parsed": {
+          "event": "2026年义务植树活动",
+          "date": "2026年3月12日",
+          "time": "09:00",
+          "location": "学校北门",
+          "deadline": "2026年3月12日 09:00"
+        },
+        "parseError": null,
+        "latencyMs": 1775,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 292
+        },
+        "costCNY": 0.0028640000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A03",
+        "rep": 2,
+        "raw": "{\"event\":\"义务植树活动\",\"date\":\"2026年5月8日\",\"time\":\"09:00\",\"location\":\"学校北门\",\"deadline\":\"2026年5月8日 09:00\"}",
+        "parsed": {
+          "event": "义务植树活动",
+          "date": "2026年5月8日",
+          "time": "09:00",
+          "location": "学校北门",
+          "deadline": "2026年5月8日 09:00"
+        },
+        "parseError": null,
+        "latencyMs": 2812,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 514
+        },
+        "costCNY": 0.00464,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A03",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年义务植树活动\",\"date\":\"2026年5月8日\",\"time\":\"09:00\",\"location\":\"学校北门\",\"deadline\":\"2026年5月8日 09:00\"}",
+        "parsed": {
+          "event": "2026年义务植树活动",
+          "date": "2026年5月8日",
+          "time": "09:00",
+          "location": "学校北门",
+          "deadline": "2026年5月8日 09:00"
+        },
+        "parseError": null,
+        "latencyMs": 3144,
+        "usage": {
+          "promptTokens": 264,
+          "completionTokens": 520
+        },
+        "costCNY": 0.0046879999999999995,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A04",
+        "rep": 1,
+        "raw": "{\"event\":\"羽毛球比赛\",\"date\":\"待定（延期一周举行，新日期待主办方确认后公布）\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定（以主办方公布的新比赛日期为准）\"}",
+        "parsed": {
+          "event": "羽毛球比赛",
+          "date": "待定（延期一周举行，新日期待主办方确认后公布）",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定（以主办方公布的新比赛日期为准）"
+        },
+        "parseError": null,
+        "latencyMs": 1728,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 153
+        },
+        "costCNY": 0.0017560000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A04",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年羽毛球比赛\",\"date\":\"待定（原定日期延后一周，待主办方确认后公布）\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年羽毛球比赛",
+          "date": "待定（原定日期延后一周，待主办方确认后公布）",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1675,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 230
+        },
+        "costCNY": 0.002372,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A04",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年羽毛球比赛\",\"date\":\"待定（原定日期延期一周，新日期待主办方确认后公布）\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定（随最新比赛日期一并公布）\"}",
+        "parsed": {
+          "event": "2026年羽毛球比赛",
+          "date": "待定（原定日期延期一周，新日期待主办方确认后公布）",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定（随最新比赛日期一并公布）"
+        },
+        "parseError": null,
+        "latencyMs": 1136,
+        "usage": {
+          "promptTokens": 266,
+          "completionTokens": 162
+        },
+        "costCNY": 0.0018280000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A05",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年周报提交（提交给项目经理）\",\"date\":\"2026年每周五\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"2026年每周五18:00\"}",
+        "parsed": {
+          "event": "2026年周报提交（提交给项目经理）",
+          "date": "2026年每周五",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "2026年每周五18:00"
+        },
+        "parseError": null,
+        "latencyMs": 2807,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 570
+        },
+        "costCNY": 0.005084,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A05",
+        "rep": 2,
+        "raw": "{\"event\":\"周报提交（提交给项目经理）\",\"date\":\"2026年每周五\",\"time\":\"18:00\",\"location\":\"待定（提交给项目经理）\",\"deadline\":\"2026年每周五18:00（下班前）\"}",
+        "parsed": {
+          "event": "周报提交（提交给项目经理）",
+          "date": "2026年每周五",
+          "time": "18:00",
+          "location": "待定（提交给项目经理）",
+          "deadline": "2026年每周五18:00（下班前）"
+        },
+        "parseError": null,
+        "latencyMs": 2091,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 404
+        },
+        "costCNY": 0.0037560000000000002,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A05",
+        "rep": 3,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 8913,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016524,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A06",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年班级聚餐\",\"date\":\"2026年5月8日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年班级聚餐",
+          "date": "2026年5月8日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 4301,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 841
+        },
+        "costCNY": 0.007252,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A06",
+        "rep": 2,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9519,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016524,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A06",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年班级聚餐\",\"date\":\"2026年3月20日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年班级聚餐",
+          "date": "2026年3月20日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 3571,
+        "usage": {
+          "promptTokens": 262,
+          "completionTokens": 674
+        },
+        "costCNY": 0.005916,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A07",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年毕业照拍摄\",\"date\":\"2026年6月\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年毕业照拍摄",
+          "date": "2026年6月",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 3461,
+        "usage": {
+          "promptTokens": 263,
+          "completionTokens": 676
+        },
+        "costCNY": 0.005934,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A07",
+        "rep": 2,
+        "raw": "{\"event\":\"2026届毕业照拍摄\",\"date\":\"2026年6月\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026届毕业照拍摄",
+          "date": "2026年6月",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 6637,
+        "usage": {
+          "promptTokens": 263,
+          "completionTokens": 1278
+        },
+        "costCNY": 0.010750000000000001,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A07",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年毕业照拍摄\",\"date\":\"2026年6月\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "2026年毕业照拍摄",
+          "date": "2026年6月",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 5465,
+        "usage": {
+          "promptTokens": 263,
+          "completionTokens": 1029
+        },
+        "costCNY": 0.008758,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A08",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 10372,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.01653,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A08",
+        "rep": 2,
+        "raw": "{\"event\":\"系统升级维护\",\"date\":\"2026-05-07\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"待定\"}",
+        "parsed": {
+          "event": "系统升级维护",
+          "date": "2026-05-07",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 6447,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 1134
+        },
+        "costCNY": 0.009602,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "A08",
+        "rep": 3,
+        "raw": "{\"event\":\"系统升级维护\",\"date\":\"待定\",\"time\":\"18:00起（具体恢复时间待定）\",\"location\":\"线上\",\"deadline\":\"待定（恢复时间另行通知）\"}",
+        "parsed": {
+          "event": "系统升级维护",
+          "date": "待定",
+          "time": "18:00起（具体恢复时间待定）",
+          "location": "线上",
+          "deadline": "待定（恢复时间另行通知）"
+        },
+        "parseError": null,
+        "latencyMs": 3616,
+        "usage": {
+          "promptTokens": 265,
+          "completionTokens": 433
+        },
+        "costCNY": 0.003994,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V01",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年科普讲座\",\"date\":\"2026年10月17日\",\"time\":\"14:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年科普讲座",
+          "date": "2026年10月17日",
+          "time": "14:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5660,
+        "usage": {
+          "promptTokens": 281,
+          "completionTokens": 971
+        },
+        "costCNY": 0.00833,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V01",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年科技馆科普讲座\",\"date\":\"2026年10月17日\",\"time\":\"14:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年科技馆科普讲座",
+          "date": "2026年10月17日",
+          "time": "14:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 6943,
+        "usage": {
+          "promptTokens": 281,
+          "completionTokens": 956
+        },
+        "costCNY": 0.00821,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V01",
+        "rep": 3,
+        "raw": "{\"event\":\"科普讲座\",\"date\":\"2026年10月17日\",\"time\":\"14:00\",\"location\":\"科技馆一楼报告厅\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "科普讲座",
+          "date": "2026年10月17日",
+          "time": "14:00",
+          "location": "科技馆一楼报告厅",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 3617,
+        "usage": {
+          "promptTokens": 281,
+          "completionTokens": 504
+        },
+        "costCNY": 0.004594,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V02",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 10594,
+        "usage": {
+          "promptTokens": 272,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016544,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V02",
+        "rep": 2,
+        "raw": "{\"event\":\"讲座\",\"date\":\"2026-10-14\",\"time\":\"09:00\",\"location\":\"一教101\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "讲座",
+          "date": "2026-10-14",
+          "time": "09:00",
+          "location": "一教101",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5419,
+        "usage": {
+          "promptTokens": 272,
+          "completionTokens": 762
+        },
+        "costCNY": 0.00664,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V02",
+        "rep": 3,
+        "raw": "{\"event\":\"讲座\",\"date\":\"2026年10月14日\",\"time\":\"09:00\",\"location\":\"一教101\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "讲座",
+          "date": "2026年10月14日",
+          "time": "09:00",
+          "location": "一教101",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5776,
+        "usage": {
+          "promptTokens": 272,
+          "completionTokens": 964
+        },
+        "costCNY": 0.008256,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V03",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年技术沙龙\",\"date\":\"2026年10月16日\",\"time\":\"19:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年技术沙龙",
+          "date": "2026年10月16日",
+          "time": "19:00",
+          "location": "创业园2栋路演厅",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 11073,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 1874
+        },
+        "costCNY": 0.015548,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V03",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年技术沙龙\",\"date\":\"2026年10月16日\",\"time\":\"19:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"2026年10月16日 19:00\"}",
+        "parsed": {
+          "event": "2026年技术沙龙",
+          "date": "2026年10月16日",
+          "time": "19:00",
+          "location": "创业园2栋路演厅",
+          "deadline": "2026年10月16日 19:00"
+        },
+        "parseError": null,
+        "latencyMs": 3922,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 633
+        },
+        "costCNY": 0.00562,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V03",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年技术沙龙\",\"date\":\"2026年10月16日\",\"time\":\"19:00\",\"location\":\"创业园2栋路演厅\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年技术沙龙",
+          "date": "2026年10月16日",
+          "time": "19:00",
+          "location": "创业园2栋路演厅",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 10334,
+        "usage": {
+          "promptTokens": 278,
+          "completionTokens": 1962
+        },
+        "costCNY": 0.016252000000000003,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V04",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年创新创业大赛决赛\",\"date\":\"2026-10-28\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026-10-20 12:00\"}",
+        "parsed": {
+          "event": "2026年创新创业大赛决赛",
+          "date": "2026-10-28",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026-10-20 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1938,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 276
+        },
+        "costCNY": 0.002766,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V04",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年创新创业大赛决赛\",\"date\":\"2026年10月28日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026年10月20日 12:00\"}",
+        "parsed": {
+          "event": "2026年创新创业大赛决赛",
+          "date": "2026年10月28日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026年10月20日 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1826,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 252
+        },
+        "costCNY": 0.002574,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V04",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年创新创业大赛决赛\",\"date\":\"2026年10月28日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"2026年10月20日 12:00\"}",
+        "parsed": {
+          "event": "2026年创新创业大赛决赛",
+          "date": "2026年10月28日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "2026年10月20日 12:00"
+        },
+        "parseError": null,
+        "latencyMs": 1572,
+        "usage": {
+          "promptTokens": 279,
+          "completionTokens": 242
+        },
+        "costCNY": 0.002494,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V05",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年迎新足球赛\",\"date\":\"2026年10月12日（原定，因天气取消）\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"待定\"}\n\n注：该通知中时间、地点、截止时间均未明确，日期为原定日期且活动已取消；补赛时间与安排为「另行通知」。",
+        "parsed": {
+          "event": "2026年迎新足球赛",
+          "date": "2026年10月12日（原定，因天气取消）",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "待定"
+        },
+        "parseError": null,
+        "latencyMs": 1724,
+        "usage": {
+          "promptTokens": 271,
+          "completionTokens": 271
+        },
+        "costCNY": 0.0027099999999999997,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V05",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年迎新足球赛\",\"date\":\"2026年10月12日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"无\"}",
+        "parsed": {
+          "event": "2026年迎新足球赛",
+          "date": "2026年10月12日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "无"
+        },
+        "parseError": null,
+        "latencyMs": 5603,
+        "usage": {
+          "promptTokens": 271,
+          "completionTokens": 1047
+        },
+        "costCNY": 0.008917999999999999,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V05",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年迎新足球赛\",\"date\":\"2026年10月12日\",\"time\":\"18:00\",\"location\":\"待定\",\"deadline\":\"另行通知\"}",
+        "parsed": {
+          "event": "2026年迎新足球赛",
+          "date": "2026年10月12日",
+          "time": "18:00",
+          "location": "待定",
+          "deadline": "另行通知"
+        },
+        "parseError": null,
+        "latencyMs": 3750,
+        "usage": {
+          "promptTokens": 271,
+          "completionTokens": 674
+        },
+        "costCNY": 0.005934,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V06",
+        "rep": 1,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 10246,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016572,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V06",
+        "rep": 2,
+        "raw": "",
+        "parsed": null,
+        "parseError": "输出中未找到 JSON 对象",
+        "latencyMs": 9390,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 2000
+        },
+        "costCNY": 0.016572,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V06",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年健身操课（第三次改期）\",\"date\":\"2026-05-09\",\"time\":\"10:00\",\"location\":\"健身房B区\",\"deadline\":\"2026-05-09 10:00\"}",
+        "parsed": {
+          "event": "2026年健身操课（第三次改期）",
+          "date": "2026-05-09",
+          "time": "10:00",
+          "location": "健身房B区",
+          "deadline": "2026-05-09 10:00"
+        },
+        "parseError": null,
+        "latencyMs": 8040,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 1721
+        },
+        "costCNY": 0.01434,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V07",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年征稿活动\",\"date\":\"2026年10月18日\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"2026年10月18日 18:00\"}",
+        "parsed": {
+          "event": "2026年征稿活动",
+          "date": "2026年10月18日",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "2026年10月18日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 5951,
+        "usage": {
+          "promptTokens": 276,
+          "completionTokens": 1346
+        },
+        "costCNY": 0.01132,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V07",
+        "rep": 2,
+        "raw": "{\"event\":\"征稿活动（2026年）\",\"date\":\"2026年10月18日\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"2026年10月18日 18:00\"}",
+        "parsed": {
+          "event": "征稿活动（2026年）",
+          "date": "2026年10月18日",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "2026年10月18日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 2416,
+        "usage": {
+          "promptTokens": 276,
+          "completionTokens": 459
+        },
+        "costCNY": 0.004224,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V07",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年征稿活动\",\"date\":\"待定\",\"time\":\"18:00\",\"location\":\"线上\",\"deadline\":\"2026年10月18日 18:00\"}",
+        "parsed": {
+          "event": "2026年征稿活动",
+          "date": "待定",
+          "time": "18:00",
+          "location": "线上",
+          "deadline": "2026年10月18日 18:00"
+        },
+        "parseError": null,
+        "latencyMs": 2446,
+        "usage": {
+          "promptTokens": 276,
+          "completionTokens": 426
+        },
+        "costCNY": 0.00396,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V08",
+        "rep": 1,
+        "raw": "{\"event\":\"2026年新员工培训\",\"date\":\"2026年10月21日\",\"time\":\"15:00\",\"location\":\"线上腾讯会议（会议号开课前群内通知）\",\"deadline\":\"2026年10月21日15:00前\"}",
+        "parsed": {
+          "event": "2026年新员工培训",
+          "date": "2026年10月21日",
+          "time": "15:00",
+          "location": "线上腾讯会议（会议号开课前群内通知）",
+          "deadline": "2026年10月21日15:00前"
+        },
+        "parseError": null,
+        "latencyMs": 4089,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 795
+        },
+        "costCNY": 0.006932000000000001,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V08",
+        "rep": 2,
+        "raw": "{\"event\":\"2026年新员工培训\",\"date\":\"2026-10-21\",\"time\":\"15:00\",\"location\":\"线上腾讯会议（会议号开课前群内通知）\",\"deadline\":\"2026-10-21 15:00\"}",
+        "parsed": {
+          "event": "2026年新员工培训",
+          "date": "2026-10-21",
+          "time": "15:00",
+          "location": "线上腾讯会议（会议号开课前群内通知）",
+          "deadline": "2026-10-21 15:00"
+        },
+        "parseError": null,
+        "latencyMs": 9521,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 1889
+        },
+        "costCNY": 0.015684,
+        "error": null
+      },
+      {
+        "versionId": "new",
+        "sampleId": "V08",
+        "rep": 3,
+        "raw": "{\"event\":\"2026年新员工培训\",\"date\":\"2026-10-21\",\"time\":\"15:00\",\"location\":\"线上腾讯会议\",\"deadline\":\"2026-10-21 15:00\"}",
+        "parsed": {
+          "event": "2026年新员工培训",
+          "date": "2026-10-21",
+          "time": "15:00",
+          "location": "线上腾讯会议",
+          "deadline": "2026-10-21 15:00"
+        },
+        "parseError": null,
+        "latencyMs": 8097,
+        "usage": {
+          "promptTokens": 286,
+          "completionTokens": 1671
+        },
+        "costCNY": 0.01394,
+        "error": null
+      }
+    ]
+  }
+}
