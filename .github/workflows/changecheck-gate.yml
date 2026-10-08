@@ -1,0 +1,29 @@
+# ChangeCheck 吃自己的狗粮：用本仓库的 CLI 对示例配置跑验收（mock 模式，零 API 成本）。
+# 真实项目里把 --mode 换成 real 并配置 DEEPSEEK_API_KEY，退出码即为合并守门：
+#   0=无新增失败  1=新增关键违规（阻断）  2=新增普通失败（复核）
+name: ChangeCheck 验收看门
+
+on:
+  push:
+    paths: ['example/**', 'cli/**', 'src/lib/kernel/**', '.github/workflows/changecheck-gate.yml']
+  pull_request:
+    paths: ['example/**', 'cli/**', 'src/lib/kernel/**']
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 运行验收（mock）
+        run: npm run cc -- run example/support-ticket/changecheck.json --mode mock
+      - name: 归档验收报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: changecheck-report
+          path: example/support-ticket/changecheck-out/

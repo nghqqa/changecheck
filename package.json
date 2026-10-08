@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "cc": "tsx cli/changecheck.ts"
   },
   "dependencies": {
     "next": "^15.5.6",

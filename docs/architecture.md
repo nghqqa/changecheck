@@ -1,7 +1,8 @@
 # ChangeCheck v1 架构
 
-> 最后更新：2026-10-07 ｜ 上游：project-brief（决策）· product-vision（完整形态）
-> 原则：v1 四天能交付、评审一键可跑；数据模型按完整形态分层设计，避免返工。
+> 最后更新：2026-10-08 ｜ 上游：project-brief（决策）· product-vision（完整形态）
+> 原则：**内核是接入层，Web 只是展示面**——CLI/CI、Web、（未来的 MCP）都是同一内核的不同表面。
+> v1 四天能交付、评审一键可跑；数据模型按完整形态分层设计，避免返工。
 
 ## 1. 总览
 
@@ -30,21 +31,30 @@
 
 ```
 changecheck/
+├─ cli/                     # 接入层：CLI（配置即代码 + CI 守门，退出码=仅新增失败非零）
+│  ├─ changecheck.ts        #   入口：init / run
+│  └─ runner.ts             #   配置校验 + 内核编排（纯函数，可测试）
+├─ example/                 # 可运行示例配置（也是本仓库 CI 看门的输入）
 ├─ docs/                    # 项目文档（唯一事实来源 project-brief）
 ├─ m0/                      # Milestone 0 验证实验（保留，含种子样例集与两版提示词）
 ├─ src/
-│  ├─ app/                  # 页面与路由
-│  │  ├─ page.tsx           # 任务列表
-│  │  ├─ tasks/[id]/        # 任务详情（测试集 Tab + 版本 Tab）
+│  ├─ app/                  # Web 展示面：页面与路由
+│  │  ├─ page.tsx           # 任务列表（含新建任务入口）
+│  │  ├─ tasks/new/         # 创建自定义任务（字段 schema）
+│  │  ├─ tasks/[id]/        # 任务详情（验收标准/测试集/版本/运行历史）
 │  │  │  ├─ samples/[sid]/  # 样例编辑/人工确认（检查项就在这确认）
 │  │  │  └─ runs/new/       # 配置两版本发起对比运行
 │  │  ├─ runs/[id]/         # 运行报告页（新增失败优先 + 证据展开）
 │  │  └─ api/               # Route Handlers（见 §4）
+│  ├─ components/           # 客户端组件
 │  ├─ lib/
-│  │  ├─ kernel/            # executor / checker / report（自 m0 移植）
+│  │  ├─ kernel/            # 内核三层：executor / checker / report（UI 无关，CLI 直接复用）
 │  │  ├─ db.ts              # SQLite schema + 访问函数
-│  │  └─ seed.ts            # 首次启动播种：m0 种子任务/样例/两版本
+│  │  ├─ seed.ts            # 首次启动播种：演示任务
+│  │  ├─ requirements.ts    # 要求引导引擎 v0（NL → 检查项 → 规则开关）
+│  │  └─ runs.ts            # 运行编排（快照/队列/进度）
 │  └─ app/globals.css       # 极简手写样式（不引 UI 框架）
+├─ tests/                   # 内核 + CLI 单元测试
 ├─ Dockerfile / docker-compose.yml
 └─ data/changecheck.db      # 运行数据（gitignore）
 ```

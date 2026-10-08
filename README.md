@@ -31,6 +31,18 @@ docker compose up -d                # http://localhost:3000
 
 **做你自己的任务**：首页 →「＋ 新建验收任务」→ 定义字段 schema（任意"文本进、结构化 JSON 出"的 AI 功能）→ 添加版本与样例 → 对比运行。第一个字段约定为主体名称，验收时允许命名等价。
 
+### 接入层：CLI + CI 守门（配置即代码）
+
+Web 是同一内核的展示面；真正接进开发流程靠 CLI——验收标准与测试集以 JSON 存在你的仓库里，随代码版本化：
+
+```bash
+npm run cc -- init ./changecheck.json          # 生成配置脚手架（改样例和提示词）
+npm run cc -- run ./changecheck.json --mode mock   # mock 试跑
+DEEPSEEK_API_KEY=sk-xxx npm run cc -- run ./changecheck.json --mode real   # 真实守门
+```
+
+**退出码语义（CI 守门的关键）**：`0`=无新增失败（允许还债式改进）｜`1`=新增关键违规（阻断合并）｜`2`=新增普通失败（需复核）。平均值上涨不会放行新增退步——这正是本工具存在的意义。本仓库自己的 CI 就在用它（[.github/workflows/changecheck-gate.yml](.github/workflows/changecheck-gate.yml)，示例配置 mock 模式零成本）；参考 [example/support-ticket/](example/support-ticket/changecheck.json) 写你自己的配置。
+
 ### 环境变量
 
 | 变量 | 默认 | 说明 |
