@@ -196,6 +196,16 @@ details.case .io { background: #fafbfc; border-radius: 8px; padding: 8px 12px; m
 .flow a:hover { color: var(--brand); border-color: var(--brand); }
 .flow-sep { color: #b9c2cd; }
 
+.new-task {
+  border: 1.5px dashed #b9c6d8;
+  border-radius: 10px;
+  padding: 16px 18px;
+  background: transparent;
+  color: var(--ink);
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.new-task:hover { border-color: var(--brand); background: #fbfcfe; }
+
 .hero {
   background: var(--card);
   border: 1px solid var(--line);

@@ -72,6 +72,12 @@ export default function Home() {
           </div>
         );
       })}
+      <Link href="/tasks/new" className="new-task" style={{ display: 'block', textDecoration: 'none' }}>
+        <div style={{ fontWeight: 700, color: 'var(--brand)' }}>＋ 新建验收任务</div>
+        <div className="muted" style={{ marginTop: 4 }}>
+          定义你自己的字段 schema，为任何「文本进、结构化 JSON 出」的 AI 功能建立回归验收——工单提取、订单结构化、分类打标……
+        </div>
+      </Link>
     </div>
   );
 }

@@ -159,6 +159,10 @@ export function getDb(): DatabaseSync {
 }
 
 // ---- tasks ----
+export function insertTask(name: string, scene: string, schemaJson: string): number {
+  const r = getDb().prepare('INSERT INTO tasks (name, scene, schema_json) VALUES (?,?,?)').run(name, scene, schemaJson);
+  return Number(r.lastInsertRowid);
+}
 export const listTasks = () => getDb().prepare('SELECT * FROM tasks ORDER BY id').all() as unknown as Task[];
 export const getTask = (id: number) => getDb().prepare('SELECT * FROM tasks WHERE id = ?').get(id) as unknown as Task | undefined;
 

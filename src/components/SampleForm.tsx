@@ -1,10 +1,9 @@
 'use client';
 // 样例表单：输入 + 参考答案（mustExtract/mustBeEmpty 由参考答案自动推导）+ 关键要求人工确认。
-// 这一步就是产品流程里的「人工确认检查项」。
+// 这一步就是产品流程里的「人工确认检查项」。字段列表来自任务 schema（自定义任务字段任意）。
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-const FIELDS = ['event', 'date', 'time', 'location', 'deadline'] as const;
 const CATS = [
   ['normal', '正常（信息齐全）'],
   ['missing', '缺失（该留空）'],
@@ -14,17 +13,19 @@ const CATS = [
 
 export default function SampleForm({
   taskId,
+  fields,
   sample,
   defaultOrigin = 'manual',
 }: {
   taskId: number;
+  fields: string[];
   sample?: { id: number; category: string; input: string; reference: Record<string, string>; critical: string[]; note: string };
   defaultOrigin?: 'manual' | 'real-error';
 }) {
   const router = useRouter();
   const [category, setCategory] = useState(sample?.category ?? 'normal');
   const [input, setInput] = useState(sample?.input ?? '');
-  const [reference, setReference] = useState<Record<string, string>>(sample?.reference ?? Object.fromEntries(FIELDS.map((f) => [f, ''])));
+  const [reference, setReference] = useState<Record<string, string>>(sample?.reference ?? Object.fromEntries(fields.map((f) => [f, ''])));
   const [critical, setCritical] = useState<string[]>(sample?.critical ?? []);
   const [note, setNote] = useState(sample?.note ?? '');
   const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export default function SampleForm({
       if (sample) router.push(`/tasks/${taskId}`);
       else {
         setInput('');
-        setReference(Object.fromEntries(FIELDS.map((f) => [f, ''])));
+        setReference(Object.fromEntries(fields.map((f) => [f, ''])));
         setCritical([]);
         setNote('');
       }
@@ -77,7 +78,7 @@ export default function SampleForm({
 
       <label>参考答案 —— 非空字段自动成为「必须提取」，空字段自动成为「必须留空」（缺失即违规）</label>
       <div className="row">
-        {FIELDS.map((f) => (
+        {fields.map((f) => (
           <div key={f}>
             <label style={{ color: 'var(--ink)' }}>{f}</label>
             <input className="code" value={reference[f] ?? ''} onChange={(e) => setReference({ ...reference, [f]: e.target.value })} placeholder="留空=该字段必须为空" />
@@ -87,7 +88,7 @@ export default function SampleForm({
 
       <label>关键要求（零容忍字段：失败即判「违反关键要求」）</label>
       <div className="checkbox-row">
-        {FIELDS.map((f) => (
+        {fields.map((f) => (
           <label key={f}>
             <input type="checkbox" checked={critical.includes(f)} onChange={() => toggleCritical(f)} /> {f}
           </label>

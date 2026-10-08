@@ -20,7 +20,7 @@ export interface RunSnapshot {
   requirementsText?: string;
 }
 
-function toKernelSample(s: SampleRow): KernelSample {
+function toKernelSample(s: SampleRow, fields?: string[]): KernelSample {
   const checks = JSON.parse(s.checks_json) as { critical?: string[] };
   return {
     id: s.id,
@@ -29,6 +29,7 @@ function toKernelSample(s: SampleRow): KernelSample {
     reference: JSON.parse(s.reference_json),
     critical: checks.critical ?? [],
     note: s.note,
+    ...(fields ? { fields } : {}),
   };
 }
 
@@ -46,6 +47,16 @@ function toVersionConfig(v: VersionRow): VersionConfig {
   };
 }
 
+/** 从任务 schema 取字段列表（自定义任务）；解析失败按缺省五字段处理 */
+function schemaFields(task: { schema_json: string }): string[] | undefined {
+  try {
+    const fields = (JSON.parse(task.schema_json) as { fields?: string[] }).fields;
+    return Array.isArray(fields) && fields.length ? fields : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** 构建并返回运行快照（在 insertRun 之前调用，结果随 run 落库） */
 export function buildSnapshot(taskId: number, baseId: number, candId: number): RunSnapshot | { error: string } {
   const task = getTask(taskId);
@@ -53,7 +64,7 @@ export function buildSnapshot(taskId: number, baseId: number, candId: number): R
   const candVer = getVersion(candId);
   if (!task) return { error: '任务不存在' };
   if (!baseVer || !candVer) return { error: '版本配置不存在' };
-  const samples = listSamples(taskId).filter((s) => s.enabled).map(toKernelSample);
+  const samples = listSamples(taskId).filter((s) => s.enabled).map((s) => toKernelSample(s, schemaFields(task)));
   if (samples.length === 0) return { error: '没有启用的样例' };
 
   const req = task.requirements_json ? (JSON.parse(task.requirements_json) as { text?: string; rules?: CheckerRules; items?: { label: string; confirmed: boolean }[] }) : null;

@@ -1,4 +1,5 @@
-FROM node:24-alpine
+# Node 22 LTS：node:sqlite（实验特性）与 Next 15 均支持；选 alpine 减小镜像体积
+FROM node:22-alpine
 WORKDIR /app
 
 COPY package.json package-lock.json ./

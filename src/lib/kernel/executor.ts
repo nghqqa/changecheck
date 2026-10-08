@@ -9,6 +9,8 @@ export interface KernelSample {
   reference: Record<string, string>;
   critical: string[];
   note?: string;
+  /** 任务 schema 约定的字段列表（自定义任务；缺省用内置通知提取五字段） */
+  fields?: string[];
 }
 
 export interface VersionConfig {

@@ -7,6 +7,7 @@ import ImportSeedButton from '@/components/ImportSeedButton';
 import SampleForm from '@/components/SampleForm';
 import SampleRowActions from '@/components/SampleRowActions';
 import VersionCard from '@/components/VersionCard';
+import VersionCreateForm from '@/components/VersionCreateForm';
 import RequirementsWizard, { RequirementsView } from '@/components/RequirementsWizard';
 import { Icon } from '@/components/icons';
 
@@ -45,6 +46,8 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
   const versions = listVersions(task.id);
   const runs = listRuns(task.id);
   const requirements: StoredRequirements | null = task.requirements_json ? JSON.parse(task.requirements_json) : null;
+  const schema = JSON.parse(task.schema_json) as { fields: string[]; desc?: Record<string, string> };
+  const isNotice = task.scene.startsWith('notice-extract');
 
   return (
     <div>
@@ -78,10 +81,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       )}
 
       <h2 id="sec-samples">测试集（{samples.length} 条，启用 {samples.filter((s) => s.enabled).length} 条）</h2>
-      <div className="toolbar">
-        <ImportSeedButton taskId={task.id} />
-        <span className="muted">种子集 = M0 验证实验的 36 条样例（可复现）</span>
-      </div>
+      {isNotice && (
+        <div className="toolbar">
+          <ImportSeedButton taskId={task.id} />
+          <span className="muted">种子集 = M0 验证实验的 36 条样例（可复现）</span>
+        </div>
+      )}
       <div className="table-wrap">
         <table>
         <thead>
@@ -130,7 +135,7 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
       <details className="card" style={{ marginTop: 14 }}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>＋ 新增样例</summary>
         <div style={{ paddingTop: 8 }}>
-          <SampleForm taskId={task.id} />
+          <SampleForm taskId={task.id} fields={schema.fields} />
         </div>
       </details>
       <details className="card">
@@ -139,12 +144,17 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           <p className="page-desc" style={{ margin: '0 0 4px' }}>
             线上发现一条错误输出？把输入和「本应正确的答案」填进来，它从此成为回归测试的一部分，每次改版自动复检。
           </p>
-          <SampleForm taskId={task.id} defaultOrigin="real-error" />
+          <SampleForm taskId={task.id} fields={schema.fields} defaultOrigin="real-error" />
         </div>
       </details>
 
       <h2 id="sec-versions">版本配置（{versions.length} 个）</h2>
       <p className="page-desc">对比时任选两个：一个作基线（现状），一个作候选（改版）。改提示词就在这里改。</p>
+      {versions.length === 0 && (
+        <div className="banner review" style={{ marginBottom: 12 }}>
+          还没有版本——先在下面添加至少 2 个版本（基线 + 候选）才能发起对比运行。
+        </div>
+      )}
       <div className="grid-2">
         {versions.map((v) => (
           <VersionCard
@@ -153,6 +163,12 @@ export default async function TaskPage({ params }: { params: Promise<{ id: strin
           />
         ))}
       </div>
+      <details className="card">
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>＋ 新增版本</summary>
+        <div style={{ paddingTop: 8 }}>
+          <VersionCreateForm taskId={task.id} defaultModel={process.env.DEEPSEEK_MODEL || 'deepseek-flash'} />
+        </div>
+      </details>
 
       <h2 id="sec-runs">运行历史（{runs.length} 次）</h2>
       {runs.length === 0 ? (

@@ -10,6 +10,7 @@ export default async function SampleEditPage({ params }: { params: Promise<{ id:
   const task = getTask(Number(id));
   const sample = getSample(Number(sid));
   if (!task || !sample) notFound();
+  const schema = JSON.parse(task.schema_json) as { fields: string[] };
 
   return (
     <div style={{ maxWidth: 860 }}>
@@ -20,6 +21,7 @@ export default async function SampleEditPage({ params }: { params: Promise<{ id:
       <div className="card">
         <SampleForm
           taskId={task.id}
+          fields={schema.fields}
           sample={{
             id: sample.id,
             category: sample.category,

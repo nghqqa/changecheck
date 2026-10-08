@@ -98,9 +98,12 @@ export function checkRecord(sample: KernelSample, record: Pick<ExecRecord, 'pars
   }
 
   const out = record.parsed as Record<string, unknown>;
-  const extraKeys = Object.keys(out).filter((k) => !FIELDS.includes(k));
+  // 字段列表来自任务 schema（自定义任务），缺省为内置通知提取五字段
+  const fields = sample.fields?.length ? sample.fields : FIELDS;
+  const nameField = fields[0] ?? 'event'; // 约定：第一个字段为主体名称，享受命名等价放宽
+  const extraKeys = Object.keys(out).filter((k) => !fields.includes(k));
 
-  for (const f of FIELDS) {
+  for (const f of fields) {
     const ref = sample.reference[f] ?? '';
     if (!(f in out)) {
       fail(f, 'schema', ref === '' ? '""' : ref, '(字段缺失)', sample.critical.includes(f));
@@ -132,9 +135,9 @@ export function checkRecord(sample: KernelSample, record: Pick<ExecRecord, 'pars
       fail(f, 'exact(含义改变)', ref, val, sample.critical.includes(f));
       continue;
     }
-    if (f === 'event') {
-      // 事项名是命名题：等价表达可接受（可由验收要求关闭为逐字严格）
-      if (opts.eventNear && isEventNear(na, nref)) near(f, 'exact(事项名等价)', ref, val);
+    if (f === nameField) {
+      // 主体字段是命名题：等价表达可接受（可由验收要求关闭为逐字严格）
+      if (opts.eventNear && isEventNear(na, nref)) near(f, 'exact(名称等价)', ref, val);
       else fail(f, 'exact(应与原文一致)', ref, val, sample.critical.includes(f));
       continue;
     }

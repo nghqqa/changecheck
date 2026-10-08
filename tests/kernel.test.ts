@@ -267,3 +267,33 @@ test('normalize 处理空白与全角标点', () => {
   assert.equal(normalize(' 10月12日 '), normalize('10月12日'));
   assert.equal(normalize('上午10：00'), '上午10:00');
 });
+
+// ---- 自定义任务字段 ----
+test('自定义字段：按任务 schema 检查，约定外字段判 schema 违规', () => {
+  const s = sample({
+    id: 'C1',
+    fields: ['title', 'due', 'owner'],
+    reference: { title: '季度报告', due: '周五', owner: '张三' },
+    critical: ['due'],
+  });
+  // 输出多了任务外字段、漏了 owner
+  const r = checkRecord(s, rec({ parsed: { title: '季度报告', due: '周五', date: '10月12日' } }));
+  assert.equal(r.fieldResults.find((x) => x.field === 'date')!.rule, 'schema(多余字段)');
+  assert.equal(r.fieldResults.find((x) => x.field === 'owner')!.rule, 'schema');
+  assert.equal(r.pass, false);
+});
+
+test('自定义字段：第一个字段为主体名称，享受命名等价放宽', () => {
+  const s = sample({
+    id: 'C2',
+    fields: ['title', 'due'],
+    reference: { title: '季度报告', due: '' },
+    critical: [],
+  });
+  const r = checkRecord(s, rec({ parsed: { title: '2026年季度报告', due: '' } }));
+  assert.equal(r.fieldResults.find((x) => x.field === 'title')!.status, 'near');
+  assert.equal(r.pass, true);
+  // 缺失字段必须留空的规则对自定义字段同样生效（due 为空，输出补了值 → 关键违规）
+  const v = checkRecord(s, rec({ parsed: { title: '季度报告', due: '下周五' } }));
+  assert.equal(v.criticalViolation, true);
+});

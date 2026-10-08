@@ -79,8 +79,8 @@ const PATTERNS: Pattern[] = [
 ];
 
 const BASE_ITEMS: Omit<CheckItem, 'id' | 'basis'>[] = [
-  { label: '输出为合法 JSON，且仅含约定字段（event/date/time/location/deadline）', kind: 'core', mapped: 'checker: schema' },
-  { label: 'event 识别出正确事项（命名等价即可；关闭则要求逐字一致）', kind: 'core', mapped: 'checker: exact(事项名等价)', ruleKey: 'eventNear' },
+  { label: '输出为合法 JSON，且仅含任务约定的字段', kind: 'core', mapped: 'checker: schema' },
+  { label: '主体字段（第一个字段）识别出正确名称（命名等价即可；关闭则要求逐字一致）', kind: 'core', mapped: 'checker: exact(名称等价)', ruleKey: 'eventNear' },
 ];
 
 /** 解析自然语言要求 → 检查项草稿（去重；冲突项排最前提醒确认） */
