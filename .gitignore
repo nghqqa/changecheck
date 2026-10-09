@@ -7,3 +7,6 @@ data/
 .next/
 next-env.d.ts
 changecheck-out/
+
+# 提交打包产物（发邮件用，不入库）
+submission-package/
