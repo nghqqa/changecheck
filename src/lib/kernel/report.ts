@@ -15,8 +15,8 @@ export interface SampleReport {
   baselineOutput: string; // JSON 字符串或原文截断
   candidateOutput: string;
   criticalViolation: boolean;
-  /** 退步类型标记：整条退步 / 新增关键违规 / 关键违规被多数决掩盖 */
-  flags: { newFail: boolean; newCritical: boolean; hiddenByMajority: boolean };
+  /** 退步类型标记：整条退步 / 新增关键违规 / 关键违规被多数决掩盖 / 偶发坏输出（解析/调用异常） */
+  flags: { newFail: boolean; newCritical: boolean; hiddenByMajority: boolean; newStructural: boolean };
   fails: { field: string; rule: string; expected: string | null; actual: string | null; critical: boolean }[];
   error: string | null;
 }
@@ -44,6 +44,8 @@ export interface ReportData {
     newCriticalViolations: number;
     /** 新增关键违规中被多数决判通过的条数（最容易被忽视的退步） */
     hiddenCritical: number;
+    /** 候选出现、基线没有的偶发坏输出样例数（解析失败/空输出/调用异常）——稳定性退步，至少需复核 */
+    newStructural: number;
     newPasses: number;
     bothFail: number;
     bothPass: number;
@@ -70,6 +72,8 @@ interface Agg {
   criticalViolation: boolean;
   /** 出现过关键违规的字段集合（任意一次重复）——用于字段级新旧对比 */
   criticalFields: Set<string>;
+  /** 结构性失败次数（调用异常/解析失败/空输出）——稳定性问题，与业务违规分开对比 */
+  structuralFails: number;
   checks: { record: ExecRecord; check: CheckResult }[];
   worst?: { record: ExecRecord; check: CheckResult };
 }
@@ -83,8 +87,10 @@ function aggregate(records: ExecRecord[], sample: KernelSample, opts: CheckOptio
       if (f.status === 'fail' && f.critical) criticalFields.add(f.field);
     }
   }
+  const structuralFails = checks.filter((c) => c.check.structural).length;
   const worst =
     checks.find((c) => !c.check.pass && c.check.criticalViolation) ||
+    checks.find((c) => !c.check.pass && c.check.structural) ||
     checks.find((c) => !c.check.pass) ||
     checks.find((c) => c.check.fieldResults.some((f) => f.status === 'near')) ||
     checks[0];
@@ -92,6 +98,7 @@ function aggregate(records: ExecRecord[], sample: KernelSample, opts: CheckOptio
     pass: passCount * 2 > checks.length,
     criticalViolation: checks.some((c) => c.check.criticalViolation),
     criticalFields,
+    structuralFails,
     checks,
     worst,
   };
@@ -176,6 +183,12 @@ export function buildReportData(params: {
   // 新增关键违规（字段级）：无论整条多数决是否通过、无论是否同时修好了别的字段
   const newCriticalSamples = samples.filter(hasNewCriticalField);
   const hiddenCriticalSamples = newCriticalSamples.filter((s) => C(s));
+  // 偶发坏输出（稳定性）：候选出现解析失败/空输出/调用异常而基线没有 —— 即使多数决整条通过也要复核
+  const newStructuralSamples = samples.filter((s) => {
+    const agg = candAgg.get(String(s.id));
+    if (!agg || agg.structuralFails === 0) return false;
+    return (baseAgg.get(String(s.id))?.structuralFails ?? 0) === 0;
+  });
   const newPasses = samples.filter((s) => !P(s) && C(s));
   const bothFail = samples.filter((s) => !P(s) && !C(s));
   const bothPass = samples.filter((s) => P(s) && C(s));
@@ -212,11 +225,20 @@ export function buildReportData(params: {
     verdictLevel = 'error';
   } else if (newCriticalSamples.length > 0) {
     const hiddenNote = hiddenCriticalSamples.length > 0 ? `，其中 ${hiddenCriticalSamples.length} 条因多数决整条仍判通过、极易被忽视` : '';
-    const extra = newFailures.length > newCriticalSamples.length ? `；另有 ${newFailures.length - newCriticalSamples.filter((s) => P(s)).length} 条普通新增失败` : '';
+    const extra = newFailures.length > newCriticalSamples.filter((s) => P(s)).length ? `；另有 ${newFailures.length - newCriticalSamples.filter((s) => P(s)).length} 条普通新增失败` : '';
     verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 但抓到 ${newCriticalSamples.length} 条新增关键违规${hiddenNote}${extra}。表面收益掩盖不了退步：不建议采用，修复后复跑确认新增失败清零。`;
     verdictLevel = 'reject';
+  } else if (newStructuralSamples.length > 0 && newFailures.length === 0) {
+    const reps = candidateRecords.filter((r) => r.parseError && !r.error).length;
+    verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 但有 ${newStructuralSamples.length} 条样例出现偶发坏输出（解析失败/空输出/调用异常，基线无此类问题${reps ? `，本轮共 ${reps} 次输出无法解析` : ''}），稳定性存疑：复核并建议复跑确认。`;
+    verdictLevel = 'review';
   } else if (newFailures.length > 0) {
-    verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 有 ${newFailures.length} 条新增失败（未违反关键要求），复核后可采用。`;
+    const st = newStructuralSamples.length > 0 ? `；另有 ${newStructuralSamples.length} 条样例出现偶发坏输出（解析失败/调用异常），需一并复核` : '';
+    verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 有 ${newFailures.length} 条新增失败（未违反关键要求）${st}，复核后可采用。`;
+    verdictLevel = 'review';
+  } else if (newStructuralSamples.length > 0) {
+    // 不可达（上方已覆盖 structural-only），防御性保留
+    verdict = `有 ${newStructuralSamples.length} 条样例出现偶发坏输出，需复核复跑。`;
     verdictLevel = 'review';
   } else if (newPasses.length > 0) {
     verdict = `无新增失败与新增关键违规，且修复 ${newPasses.length} 条${perfText ? `，${perfParts.join('、')}` : ''} —— 建议采用（最终由人工确认）。`;
@@ -232,15 +254,19 @@ export function buildReportData(params: {
     )
   );
 
-  // 退步清单 = 整条退步 ∪ 新增关键违规（去重）；"两版皆失败"仅统计未构成退步升级的剩余样例
-  const regressionSet = new Set<string>([...newFailures, ...newCriticalSamples].map((s) => String(s.id)));
+  // 退步清单 = 整条退步 ∪ 新增关键违规 ∪ 偶发坏输出（去重）；"两版皆失败"仅统计未构成退步升级的剩余样例
+  const regressionSet = new Set<string>([...newFailures, ...newCriticalSamples, ...newStructuralSamples].map((s) => String(s.id)));
   const bothFailRemaining = bothFail.filter((s) => !regressionSet.has(String(s.id)));
   const regressions = samples.filter((s) => regressionSet.has(String(s.id)));
-  const flagsOf = (s: KernelSample): SampleReport['flags'] => ({
-    newFail: !!P(s) && !C(s),
-    newCritical: hasNewCriticalField(s),
-    hiddenByMajority: hasNewCriticalField(s) && !!C(s),
-  });
+  const flagsOf = (s: KernelSample): SampleReport['flags'] => {
+    const isStructural = newStructuralSamples.some((x) => String(x.id) === String(s.id));
+    return {
+      newFail: !!P(s) && !C(s),
+      newCritical: hasNewCriticalField(s),
+      hiddenByMajority: hasNewCriticalField(s) && !!C(s),
+      newStructural: isStructural,
+    };
+  };
 
   return {
     verdict,
@@ -252,6 +278,7 @@ export function buildReportData(params: {
       newFailures: newFailures.length,
       newCriticalViolations: newCriticalSamples.length,
       hiddenCritical: hiddenCriticalSamples.length,
+      newStructural: newStructuralSamples.length,
       newPasses: newPasses.length,
       bothFail: bothFailRemaining.length,
       bothPass: bothPass.length,
@@ -269,13 +296,49 @@ export function buildReportData(params: {
     }),
     newFailureList: regressions.map((s) => toSampleReport(s, candAgg.get(String(s.id))!, baseAgg.get(String(s.id))!, flagsOf(s))),
     newPassList: newPasses.map((s) => ({ sampleId: s.id, category: s.category, note: s.note ?? '' })),
-    bothFailList: bothFailRemaining.map((s) => toSampleReport(s, candAgg.get(String(s.id))!, baseAgg.get(String(s.id))!, { newFail: false, newCritical: false, hiddenByMajority: false })),
+    bothFailList: bothFailRemaining.map((s) => toSampleReport(s, candAgg.get(String(s.id))!, baseAgg.get(String(s.id))!, { newFail: false, newCritical: false, hiddenByMajority: false, newStructural: false })),
     nearList,
     meta: { ...params.meta, checkRules: opts },
   };
 }
 
 const esc = (s: unknown) => String(s ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+
+/**
+ * 旧格式报告归一化：v0.5 之前的 stats_json 缺少新字段（字段级关键违规/偶发坏输出/费用可信度等），
+ * 读取时统一补默认值——历史报告在新页面/导出里不出现 undefined，判定展示口径一致。
+ */
+export function normalizeReportData(raw: ReportData): ReportData {
+  const d = raw as ReportData & { diff?: Record<string, unknown> };
+  const diff = {
+    newFailures: d.diff?.newFailures ?? 0,
+    newCriticalViolations: d.diff?.newCriticalViolations ?? (d.diff as { newFailCritical?: number })?.newFailCritical ?? 0,
+    hiddenCritical: d.diff?.hiddenCritical ?? 0,
+    newStructural: d.diff?.newStructural ?? 0,
+    newPasses: d.diff?.newPasses ?? 0,
+    bothFail: d.diff?.bothFail ?? 0,
+    bothPass: d.diff?.bothPass ?? 0,
+  };
+  const stat = (v: VersionStats): VersionStats => ({
+    ...v,
+    costKnown: v?.costKnown ?? (v?.cost != null ? 'all' : 'none'),
+  });
+  const flag = (f: SampleReport['flags'] | undefined, critical: boolean): SampleReport['flags'] =>
+    f ?? { newFail: true, newCritical: critical, hiddenByMajority: false, newStructural: false };
+  return {
+    ...d,
+    diff,
+    baseline: stat(d.baseline),
+    candidate: stat(d.candidate),
+    newFailureList: (d.newFailureList ?? []).map((s) => ({ ...s, flags: flag(s.flags, s.criticalViolation) })),
+    bothFailList: (d.bothFailList ?? []).map((s) => ({ ...s, flags: s.flags ?? { newFail: false, newCritical: false, hiddenByMajority: false, newStructural: false } })),
+    nearList: d.nearList ?? [],
+    byCategory: d.byCategory ?? [],
+    newPassList: d.newPassList ?? [],
+    verdictLevel: d.verdictLevel ?? 'same',
+    verdict: d.verdict ?? '',
+  };
+}
 export function fmtCostFull(v: VersionStats): string {
   if (v.costKnown === 'none') return '未知';
   const text = `¥${(v.cost ?? 0).toFixed(4)}`;
@@ -306,7 +369,7 @@ export function renderMarkdown(taskName: string, d: ReportData): string {
   L.push(`| ${d.baseline.label} | ${d.baseline.passCount}/${d.total} | ${d.baseline.criticalCount} | ${d.baseline.callErrors} | ${fmtCostFull(d.baseline)} | ${d.baseline.avgLat != null ? d.baseline.avgLat + ' ms' : '未知'} |`);
   L.push(`| ${d.candidate.label} | ${d.candidate.passCount}/${d.total} | ${d.candidate.criticalCount} | ${d.candidate.callErrors} | ${fmtCostFull(d.candidate)} | ${d.candidate.avgLat != null ? d.candidate.avgLat + ' ms' : '未知'} |`);
   L.push('');
-  L.push(`**改版差异**：新增失败 ${d.diff.newFailures} ｜ **新增关键违规 ${d.diff.newCriticalViolations}**（其中被多数决掩盖 ${d.diff.hiddenCritical}）｜ 新增通过 ${d.diff.newPasses} ｜ 皆失败 ${d.diff.bothFail} ｜ 皆通过 ${d.diff.bothPass}`);
+  L.push(`**改版差异**：新增失败 ${d.diff.newFailures} ｜ **新增关键违规 ${d.diff.newCriticalViolations}**（其中被多数决掩盖 ${d.diff.hiddenCritical}）｜ 偶发坏输出 ${d.diff.newStructural} ｜ 新增通过 ${d.diff.newPasses} ｜ 皆失败 ${d.diff.bothFail} ｜ 皆通过 ${d.diff.bothPass}`);
   L.push('');
   L.push('## 分类统计');
   L.push('');
@@ -317,14 +380,16 @@ export function renderMarkdown(taskName: string, d: ReportData): string {
   L.push(`## 一、新增退步（最优先 · ${d.newFailureList.length} 条 = 整条退步 ${d.diff.newFailures} + 新增关键违规 ${d.diff.newCriticalViolations}，去重）`);
   L.push('');
   for (const s of d.newFailureList) {
-    const fl = s.flags ?? { newFail: true, newCritical: s.criticalViolation, hiddenByMajority: false }; // 兼容旧版报告数据
+    const fl = s.flags ?? { newFail: true, newCritical: s.criticalViolation, hiddenByMajority: false, newStructural: false }; // 兼容旧版报告数据
     const flagText = fl.hiddenByMajority
       ? '🔴 **新增关键违规（整条因多数决判通过——最易被忽视）**'
       : fl.newCritical && fl.newFail
         ? '🔴 **违反关键要求**'
         : fl.newCritical
           ? '🔴 **普通失败升级为关键违规**'
-          : '⚠️ 失败';
+          : fl.newStructural
+            ? '⚠️ **偶发坏输出（解析失败/调用异常）——稳定性退步**'
+            : '⚠️ 失败';
     L.push(`#### ${s.sampleId} · ${s.category} ｜ ${flagText}`);
     if (s.note) L.push(`> ${s.note}`);
     L.push('');

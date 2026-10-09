@@ -3,7 +3,7 @@
 import type { ExecRecord, KernelSample, VersionConfig } from './kernel/executor';
 import { runVersion, DEFAULT_BASE_URL, DEFAULT_PRICING } from './kernel/executor';
 import { checkRecord, type CheckOptions } from './kernel/checker';
-import { buildReportData, type ReportData } from './kernel/report';
+import { buildReportData, normalizeReportData, type ReportData } from './kernel/report';
 import { DEFAULT_RULES, type CheckerRules } from './requirements';
 import {
   getRun, getTask, getVersion, listSamples, setRunStatus, insertRunItem, finishRun, updateRunProgress,
@@ -194,10 +194,10 @@ async function drain(): Promise<void> {
   }
 }
 
-/** 运行完成时快照的报告（样例事后被编辑不影响历史报告——报告反映运行当时的事实） */
+/** 运行完成时快照的报告（样例事后被编辑不影响历史报告——报告反映运行当时的事实）；旧格式读取时归一化 */
 export function getRunReport(runId: number): { taskName: string; data: ReportData } | null {
   const run = getRun(runId);
   if (!run || !run.stats_json) return null;
   const snap = run.snapshot_json ? (JSON.parse(run.snapshot_json) as RunSnapshot) : null;
-  return { taskName: snap?.taskName ?? getTask(run.task_id)?.name ?? '', data: JSON.parse(run.stats_json) as ReportData };
+  return { taskName: snap?.taskName ?? getTask(run.task_id)?.name ?? '', data: normalizeReportData(JSON.parse(run.stats_json) as ReportData) };
 }

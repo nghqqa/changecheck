@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getRun, getTask, getVersion } from '@/lib/db';
 import { getRunReport } from '@/lib/runs';
-import type { ReportData, SampleReport } from '@/lib/kernel/report';
+import type { SampleReport } from '@/lib/kernel/report';
 import RunPoller from '@/components/RunPoller';
 import { Icon } from '@/components/icons';
 
@@ -38,9 +38,9 @@ function CaseDetails({ s }: { s: SampleReport }) {
           <span className="badge critical">
             <Icon name="dot" /> 升级为关键违规
           </span>
-        ) : s.criticalViolation ? (
-          <span className="badge gray">
-            <Icon name="alert" /> 失败
+        ) : s.flags?.newStructural ? (
+          <span className="badge missing">
+            <Icon name="alert" /> 偶发坏输出
           </span>
         ) : (
           <span className="badge gray">
@@ -105,7 +105,9 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const task = getTask(run.task_id);
   const base = getVersion(run.baseline_version_id);
   const cand = getVersion(run.candidate_version_id);
-  const report: ReportData | null = run.stats_json ? JSON.parse(run.stats_json) : null;
+  // 读取即归一化：旧格式报告在此补齐新字段，页面与导出口径一致
+  const loaded = getRunReport(run.id);
+  const report = loaded?.data ?? null;
 
   return (
     <div>
@@ -189,7 +191,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           </div>
 
           <p className="page-desc" style={{ marginTop: 10 }}>
-            <b>改版差异</b>：新增失败 <b style={{ color: 'var(--red)' }}>{report.diff.newFailures}</b> ｜ <b style={{ color: report.diff.newCriticalViolations > 0 ? 'var(--red)' : undefined }}>新增关键违规 {report.diff.newCriticalViolations}</b>（被多数决掩盖 {report.diff.hiddenCritical}）｜ 新增通过 {report.diff.newPasses} ｜ 皆失败 {report.diff.bothFail} ｜ 皆通过 {report.diff.bothPass}
+            <b>改版差异</b>：新增失败 <b style={{ color: 'var(--red)' }}>{report.diff.newFailures}</b> ｜ <b style={{ color: report.diff.newCriticalViolations > 0 ? 'var(--red)' : undefined }}>新增关键违规 {report.diff.newCriticalViolations}</b>（被多数决掩盖 {report.diff.hiddenCritical}）｜ 偶发坏输出 <b style={{ color: report.diff.newStructural > 0 ? 'var(--amber)' : undefined }}>{report.diff.newStructural}</b> ｜ 新增通过 {report.diff.newPasses} ｜ 皆失败 {report.diff.bothFail} ｜ 皆通过 {report.diff.bothPass}
           </p>
 
           <div className="table-wrap">
@@ -219,8 +221,8 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
           </table>
           </div>
 
-          <h2>一、新增退步（最优先 · {report.newFailureList.length} 条 = 整条退步 {report.diff.newFailures} + 新增关键违规 {report.diff.newCriticalViolations}，去重）</h2>
-          <p className="page-desc">基线通过、候选失败 = 整条退步；候选出现基线没有的关键违规 = 关键层面退步（无论整条多数决是否通过，均参与一票否决）。</p>
+          <h2>一、新增退步（最优先 · {report.newFailureList.length} 条 = 整条退步 {report.diff.newFailures} + 新增关键违规 {report.diff.newCriticalViolations} + 偶发坏输出 {report.diff.newStructural}，去重）</h2>
+          <p className="page-desc">基线通过、候选失败 = 整条退步；候选出现基线没有的关键违规 = 关键层面退步（无论整条多数决是否通过，均参与一票否决）；候选出现基线没有的解析失败/调用异常 = 稳定性退步。</p>
           {report.newFailureList.length === 0 && <p className="page-desc">（无）</p>}
           {report.newFailureList.map((s) => (
             <CaseDetails key={String(s.sampleId)} s={s} />

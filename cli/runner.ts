@@ -154,9 +154,9 @@ export async function runConfig(cfg: CCConfig, env: { apiKey?: string; baseURL?:
     },
   });
 
-  // 退出码：仅新增失败非零（D7）——关键违规=1（阻断），普通新增失败=2（复核），大面积调用失败=3（结果不可信）
+  // 退出码：仅新增失败非零（D7）——关键违规=1（阻断），普通新增失败/偶发坏输出=2（复核），大面积调用失败=3（结果不可信）
   const exitCode: RunResult['exitCode'] =
-    report.verdictLevel === 'error' ? 3 : report.diff.newCriticalViolations > 0 ? 1 : report.diff.newFailures > 0 ? 2 : 0;
+    report.verdictLevel === 'error' ? 3 : report.diff.newCriticalViolations > 0 ? 1 : report.diff.newFailures > 0 || report.diff.newStructural > 0 ? 2 : 0;
   return { report, markdown: renderMarkdown(cfg.task.name, report), baselineRecords, candidateRecords, exitCode };
 }
 

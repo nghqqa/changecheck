@@ -2,6 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateConfig, runConfig, scaffoldConfig } from '../cli/runner';
+import { renderMarkdown, normalizeReportData } from '../src/lib/kernel/report';
 
 test('validateConfig：字段缺失、reference 出界、critical 出界都要报错', () => {
   const { errors } = validateConfig({
@@ -46,4 +47,40 @@ test('守门语义：候选引入关键违规 → 退出码 1（阻断）', asyn
   assert.equal(r.report.verdictLevel, 'reject');
   // Markdown 可渲染且含退出依据
   assert.match(r.markdown, /新增关键违规/);
+});
+
+test('守门语义：候选偶发坏输出（多数决仍通过）→ review + 退出码 2', async () => {
+  const cfg = scaffoldConfig();
+  // mock 行为按名称分流：不稳定 → 约 1/3 次直接返回非法 JSON（3 样例×1 次，至少一条踩中）
+  cfg.versions.candidate.name = '候选 · 不稳定版';
+  const r = await runConfig(cfg);
+  assert.equal(r.report.verdictLevel, 'review');
+  assert.equal(r.report.diff.newStructural > 0, true);
+  assert.equal(r.exitCode, 2);
+  assert.match(r.report.verdict, /偶发坏输出/);
+  assert.match(r.markdown, /偶发坏输出/);
+});
+
+test('旧格式报告归一化：缺新字段的 stats 读取时不出现 undefined', () => {
+  const legacy = {
+    verdict: '候选版本有 1 条新增失败 —— 复核后可采用。',
+    verdictLevel: 'review',
+    total: 2,
+    baseline: { label: 'b', passCount: 2, criticalCount: 0, callErrors: 0, cost: 0.1, tokens: 1, avgLat: 1 },
+    candidate: { label: 'c', passCount: 1, criticalCount: 0, callErrors: 0, cost: 0.2, tokens: 1, avgLat: 1 },
+    diff: { newFailures: 1, newFailCritical: 0, newPasses: 0, bothFail: 0, bothPass: 1 },
+    byCategory: [],
+    newFailureList: [{ sampleId: 1, category: 'normal', note: '', input: 'x', reference: {}, baselineOutput: '', candidateOutput: '', criticalViolation: false, fails: [], error: null }],
+    newPassList: [],
+    bothFailList: [],
+    nearList: [],
+    meta: { mode: 'real', model: 'm', reps: 1, timeText: '', pricingText: '' },
+  };
+  const d = normalizeReportData(legacy as never);
+  assert.equal(d.diff.newCriticalViolations, 0);
+  assert.equal(d.diff.newStructural, 0);
+  assert.equal(d.baseline.costKnown, 'all');
+  assert.equal(d.newFailureList[0].flags?.newFail, true);
+  const md = renderMarkdown('t', d);
+  assert.ok(!md.includes('undefined'));
 });

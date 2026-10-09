@@ -19,6 +19,8 @@ export interface FieldResult {
 export interface CheckResult {
   pass: boolean;
   criticalViolation: boolean;
+  /** 结构性失败：调用异常 / 输出不是合法 JSON / 空输出——属于稳定性问题，与业务规则违规分开统计 */
+  structural: boolean;
   fieldResults: FieldResult[];
   error: string | null;
 }
@@ -40,7 +42,7 @@ function digits(s: string): string {
 
 // 语义改变词：出现在其中一侧而另一侧没有 → 含义反转/修饰，必须判失败而非近似
 // （"提交实验报告"vs"不提交实验报告"、"北京"vs"北京以外"、"提交报告"vs"取消提交报告"）
-const MODIFIERS = ['不', '无', '非', '未', '别', '勿', '以外', '之内', '之外', '以前', '之后', '以后', '之前', '左右', '前后', '超过', '不到', '至少', '最多', '最少', '起见', '取消', '撤销', '撤回', '停止', '终止', '禁止', '拒绝', '无需', '放弃', '暂停'];
+const MODIFIERS = ['不', '无', '非', '未', '别', '勿', '以外', '之内', '之外', '以前', '之后', '以后', '之前', '左右', '前后', '超过', '不到', '至少', '最多', '最少', '起见', '取消', '撤销', '撤回', '停止', '终止', '禁止', '拒绝', '无需', '放弃', '暂停', '暂缓', '暂定', '延缓', '推迟', '延后', '停办', '中止'];
 function modifierDelta(a: string, b: string): boolean {
   const sa = new Set(MODIFIERS.filter((m) => a.includes(m)));
   const sb = new Set(MODIFIERS.filter((m) => b.includes(m)));
@@ -91,10 +93,11 @@ export function checkRecord(sample: KernelSample, record: Pick<ExecRecord, 'pars
   const ok = (field: string) => fieldResults.push({ field, rule: 'ok', expected: null, actual: null, status: 'pass', critical: false });
 
   if (record.error) {
-    return { pass: false, criticalViolation: sample.critical.length > 0, fieldResults: [], error: `调用失败: ${record.error}` };
+    // 调用异常是结构性失败：不与业务规则违规混算（若大面积失败，报告层可信度闸门会整体拦截）
+    return { pass: false, criticalViolation: false, structural: true, fieldResults: [], error: `调用失败: ${record.error}` };
   }
   if (!record.parsed || typeof record.parsed !== 'object') {
-    return { pass: false, criticalViolation: sample.critical.length > 0, fieldResults: [], error: record.parseError || '输出不是 JSON' };
+    return { pass: false, criticalViolation: false, structural: true, fieldResults: [], error: record.parseError || '输出不是 JSON' };
   }
 
   const out = record.parsed as Record<string, unknown>;
@@ -157,6 +160,7 @@ export function checkRecord(sample: KernelSample, record: Pick<ExecRecord, 'pars
   return {
     pass: !fieldResults.some((r) => r.status === 'fail'),
     criticalViolation: fieldResults.some((r) => r.status === 'fail' && r.critical),
+    structural: false,
     fieldResults,
     error: null,
   };

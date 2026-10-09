@@ -136,9 +136,10 @@ const MOCK_CONVERT: Record<string, string> = {
   '12月底': '2026年12月31日', 周六: '2026年10月10日', 每周六: '2026年10月10日',
 };
 
-type MockStyle = 'good' | 'aging' | 'defective' | 'blind' | 'mixed';
+type MockStyle = 'good' | 'aging' | 'defective' | 'blind' | 'mixed' | 'flaky';
 function mockStyle(name: string): MockStyle {
   if (/上代/.test(name)) return 'aging';
+  if (/不稳定|偶发/.test(name)) return 'flaky';
   if (/修复|复跑|稳定|基线|baseline/i.test(name)) return 'good';
   if (/激进|提速/.test(name)) return 'mixed';
   if (/精简/.test(name)) return 'blind';
@@ -176,6 +177,18 @@ function mockCall(version: VersionConfig, sample: KernelSample, rep: number): Om
   } else if (style === 'aging') {
     // 上代基线：多数调用漏提取时间字段（required 失败，2/3 次 → 整条多数决失败）——制造"新版可改善"的空间
     if (ref.time !== '' && h % 2 === 0) out.time = '';
+  } else if (style === 'flaky') {
+    // 不稳定候选：输出与参考一致，但约 1/3 的调用直接返回非法 JSON（结构性失败，非业务违规）
+    if (h % 3 === 0) {
+      const pt2 = 220 + Math.ceil(sample.input.length / 2);
+      return {
+        raw: '抱歉，我无法完成该任务。',
+        latencyMs: 300 + (h % 400),
+        usage: { promptTokens: pt2, completionTokens: 20 },
+        costCNY: (pt2 / 1e6) * 2 + (20 / 1e6) * 8,
+        error: null,
+      };
+    }
   } else if (style === 'mixed') {
     // 通过率更高的候选：缺失/歧义类大多修好（不再补默认值），但个别样例在 1/3 次运行中凭空补全 deadline
     if (sample.category === 'normal' && ref.deadline === '' && h % 4 === 0) out.deadline = MOCK_FILL.deadline;

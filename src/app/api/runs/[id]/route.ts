@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRun } from '@/lib/db';
+import { normalizeReportData, type ReportData } from '@/lib/kernel/report';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     mode: run.mode,
     reps: run.reps,
     progress: { done: run.progress_done, total: run.progress_total },
-    report: run.status === 'done' && run.stats_json ? JSON.parse(run.stats_json) : null,
+    report: run.status === 'done' && run.stats_json ? normalizeReportData(JSON.parse(run.stats_json) as ReportData) : null,
   });
 }
