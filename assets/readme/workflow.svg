@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="100%" role="img" aria-label="四步验收流程：确认标准、维护测试集、配置两版、对比与复跑">
+  <title>四步验收流程</title>
+  <rect width="1200" height="300" fill="#f6f7f9"/>
+
+  <text x="60" y="52" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="26" font-weight="700" fill="#1c2430">四步建立可以重复执行的验收</text>
+  <text x="60" y="82" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="17" fill="#5a6675">业务要求变成可确认的检查项，测试集随线上错误一起长大</text>
+
+  <g font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect x="60" y="108" width="250" height="120" rx="12" fill="#eef2fe" stroke="#c7d7f7"/>
+    <text x="84" y="144" font-size="20" font-weight="700" fill="#2456d6">01 确认标准</text>
+    <text x="84" y="174" font-size="16" fill="#3d4a5c">一句话业务要求 →</text>
+    <text x="84" y="198" font-size="16" fill="#3d4a5c">可确认的检查项</text>
+
+    <path d="M 318 168 L 342 168" stroke="#b9c6d8" stroke-width="2"/>
+    <path d="M 336 162 L 344 168 L 336 174 Z" fill="#b9c6d8"/>
+
+    <rect x="350" y="108" width="250" height="120" rx="12" fill="#eef2fe" stroke="#c7d7f7"/>
+    <text x="374" y="144" font-size="20" font-weight="700" fill="#2456d6">02 维护测试集</text>
+    <text x="374" y="174" font-size="16" fill="#3d4a5c">输入 + 参考答案</text>
+    <text x="374" y="198" font-size="16" fill="#3d4a5c">线上错误回流为用例</text>
+
+    <path d="M 608 168 L 632 168" stroke="#b9c6d8" stroke-width="2"/>
+    <path d="M 626 162 L 634 168 L 626 174 Z" fill="#b9c6d8"/>
+
+    <rect x="640" y="108" width="250" height="120" rx="12" fill="#eef2fe" stroke="#c7d7f7"/>
+    <text x="664" y="144" font-size="20" font-weight="700" fill="#2456d6">03 配置两版</text>
+    <text x="664" y="174" font-size="16" fill="#3d4a5c">基线 / 候选</text>
+    <text x="664" y="198" font-size="16" fill="#3d4a5c">提示词、模型、参数</text>
+
+    <path d="M 898 168 L 922 168" stroke="#b9c6d8" stroke-width="2"/>
+    <path d="M 916 162 L 924 168 L 916 174 Z" fill="#b9c6d8"/>
+
+    <rect x="930" y="108" width="210" height="120" rx="12" fill="#e8f0fe" stroke="#9dbcF0"/>
+    <text x="954" y="144" font-size="20" font-weight="700" fill="#2456d6">04 对比与复跑</text>
+    <text x="954" y="174" font-size="16" fill="#3d4a5c">新增失败字段级证据</text>
+    <text x="954" y="198" font-size="16" fill="#3d4a5c">修复 → 复跑 → 归零</text>
+  </g>
+
+  <g font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif">
+    <rect x="60" y="252" width="330" height="32" rx="8" fill="#eef0f3"/>
+    <text x="76" y="273" font-size="15" fill="#5a6675">基线 = 现状版本 · 候选 = 被验收的改版</text>
+    <rect x="410" y="252" width="380" height="32" rx="8" fill="#fdecec"/>
+    <text x="426" y="273" font-size="15" fill="#c62f2f">新增关键违规 → 一票否决（平均值掩盖不了）</text>
+    <rect x="810" y="252" width="330" height="32" rx="8" fill="#e8f6ec"/>
+    <text x="826" y="273" font-size="15" fill="#1c7c3c">偶发坏输出 → 单独复核，不冒充通过</text>
+  </g>
+</svg>

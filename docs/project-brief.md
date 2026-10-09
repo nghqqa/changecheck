@@ -149,3 +149,13 @@
 - Langfuse：https://github.com/langfuse/langfuse （MIT，ee/ 目录除外）
 - Promptfoo：https://github.com/promptfoo/promptfoo
 - 竞品参照（不撞车验证）：Toonflow https://github.com/openfrees/toonflow 、MoneyPrinterTurbo、drama-skills
+
+## 11. 会话快速上手（内部）
+
+> 原 README 内部信息迁移至此（2026-10-09，README 已重构为对外开源版）。
+
+1. 先读本文件（含全部决策记录 D1–D8，不要重新讨论已定结论）。
+2. 核对 docs/competition-facts.md 时间线（当前口径：截止 2026-10-16 24:00）。
+3. 待定事项见 §9（报名确认邮件 / 学生身份 / 中文名）。
+4. 仓库名 changecheck；中文名改版验收官（备选 evaliff、canary 隐喻）。
+5. 当前阶段快照：可提交版本，判定口径 v0.6，40 项测试，CI 看门绿，Docker 复验通过；提交材料见 docs/submission/checklist.md。

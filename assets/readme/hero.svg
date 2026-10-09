@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" width="100%" role="img" aria-label="ChangeCheck 改版验收官：同一测试集对比两个版本，优先暴露新增错误">
+  <title>ChangeCheck 改版验收官</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1626"/>
+      <stop offset="1" stop-color="#12233c"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" fill="url(#bg)"/>
+  <rect x="60" y="52" width="4" height="64" rx="2" fill="url(#accent)"/>
+
+  <text x="84" y="78" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="20" fill="#7d9bc4" letter-spacing="2">改了提示词、换了模型之后 ——</text>
+  <text x="84" y="126" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="44" font-weight="700" fill="#ffffff">ChangeCheck · 改版验收官</text>
+  <text x="84" y="170" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="24" fill="#c8d8ee">同一测试集对比两版，用证据定位新增错误</text>
+
+  <circle cx="90" cy="222" r="4" fill="#3b82f6"/>
+  <text x="106" y="228" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="19" fill="#9db4d6">新增失败优先的回归报告 · 字段级证据 · 关键违规一票否决</text>
+  <circle cx="90" cy="254" r="4" fill="#3b82f6"/>
+  <text x="106" y="260" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="19" fill="#9db4d6">Web 工作台 + CLI/CI 守门 · OpenAI 兼容 · MIT 开源</text>
+  <circle cx="90" cy="286" r="4" fill="#3b82f6"/>
+  <text x="106" y="292" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="19" fill="#9db4d6">mock 模式免密钥体验 · Docker 一键部署 · 测试资产随代码版本化</text>
+
+  <g>
+    <rect x="740" y="56" width="400" height="248" rx="14" fill="#16263d" stroke="#26405f"/>
+    <text x="768" y="96" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="19" font-weight="700" fill="#e8f0fa">通过率上涨，也要检查新增风险</text>
+    <line x1="768" y1="112" x2="1112" y2="112" stroke="#26405f"/>
+
+    <text x="768" y="146" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="17" fill="#8fa9cc">基线通过</text>
+    <text x="1112" y="150" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="26" font-weight="700" fill="#8fa9cc" text-anchor="end">27 / 36</text>
+    <line x1="768" y1="164" x2="1112" y2="164" stroke="#1d3250"/>
+
+    <text x="768" y="198" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="17" fill="#8fa9cc">候选通过</text>
+    <text x="1112" y="202" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="26" font-weight="700" fill="#60a5fa" text-anchor="end">36 / 36</text>
+    <line x1="768" y1="216" x2="1112" y2="216" stroke="#1d3250"/>
+
+    <rect x="768" y="232" width="344" height="48" rx="8" fill="#3a1220"/>
+    <text x="788" y="263" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="18" font-weight="700" fill="#f87171">新增关键违规（一票否决）</text>
+    <text x="1092" y="266" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="28" font-weight="700" fill="#ef4444" text-anchor="end">11</text>
+  </g>
+
+  <text x="84" y="336" font-family="system-ui,'PingFang SC','Microsoft YaHei',sans-serif" font-size="15" fill="#5f7ca6">mock 模拟实跑 · 多数通过不能掩盖偶发关键错误 —— 平均分上涨，不放行新增退步</text>
+</svg>
