@@ -250,7 +250,7 @@ export function updateVersion(id: number, v: Partial<{ name: string; model: stri
 }
 
 // ---- runs ----
-export function insertRun(r: { task_id: number; baseline_version_id: number; candidate_version_id: number; mode: string; reps: number; snapshot_json: string }): number {
+export function insertRun(r: { task_id: number; baseline_version_id: number; candidate_version_id: number; mode: string; reps: number; snapshot_json: string | null }): number {
   const res = getDb()
     .prepare('INSERT INTO runs (task_id, baseline_version_id, candidate_version_id, mode, reps, snapshot_json) VALUES (?,?,?,?,?,?)')
     .run(r.task_id, r.baseline_version_id, r.candidate_version_id, r.mode, r.reps, r.snapshot_json);

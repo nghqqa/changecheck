@@ -5,7 +5,7 @@
 //         先跑「基线 vs 激进」看一票否决，再跑「基线 vs 修复版」确认清零 → 演示"发现退步→修复→复跑"闭环。
 import fs from 'node:fs';
 import path from 'node:path';
-import { getDb, listTasks, insertSample, insertVersion } from './db';
+import { getDb, listTasks, insertSample, insertVersion, insertRun } from './db';
 
 export const NOTICE_SCHEMA = {
   fields: ['event', 'date', 'time', 'location', 'deadline'],
@@ -57,6 +57,33 @@ function loadM0() {
   };
 }
 
+// 预置演示报告：新装即可打开查看真实/演示的完整报告，而非空空如也（视频与首次体验依赖）。
+// 固件由真实运行归档导出（fixtures/demo-runs.json），按 scene + 版本名匹配挂载。
+function seedDemoRuns(taskId: number, scene: string, versionNames: { id: number; name: string }[]): void {
+  const p = path.join(process.cwd(), 'fixtures', 'demo-runs.json');
+  if (!fs.existsSync(p)) return;
+  let fixtures: Array<{ scene: string; baselineVersionName: string; candidateVersionName: string; mode: string; reps: number; created_at: string; stats_json: string }>;
+  try {
+    fixtures = JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return;
+  }
+  const db = getDb();
+  for (const f of fixtures) {
+    if (f.scene !== scene) continue;
+    const b = versionNames.find((v) => v.name === f.baselineVersionName);
+    const c = versionNames.find((v) => v.name === f.candidateVersionName);
+    if (!b || !c) continue;
+    const r = insertRun({ task_id: taskId, baseline_version_id: b.id, candidate_version_id: c.id, mode: f.mode, reps: f.reps, snapshot_json: null });
+    db.prepare("UPDATE runs SET status='done', stats_json=?, created_at=?, finished_at=?, progress_done=progress_total WHERE id=?").run(
+      f.stats_json,
+      f.created_at,
+      f.created_at,
+      r
+    );
+  }
+}
+
 function createTask(name: string, scene: string, extras: Array<{ name: string; systemPrompt: string }>, opts?: { skipDefaultBaseline?: boolean }) {
   const db = getDb();
   const r = db.prepare('INSERT INTO tasks (name, scene, schema_json) VALUES (?,?,?)').run(name, scene, JSON.stringify(NOTICE_SCHEMA));
@@ -89,6 +116,9 @@ function createTask(name: string, scene: string, extras: Array<{ name: string; s
       max_tokens: 2000,
     });
   }
+  // 预置演示报告（新装即有可打开的完整报告；fixtures 由真实运行归档导出）
+  const versionNames = getDb().prepare('SELECT id, name FROM versions WHERE task_id = ?').all(taskId) as unknown as { id: number; name: string }[];
+  seedDemoRuns(taskId, scene, versionNames);
   return taskId;
 }
 

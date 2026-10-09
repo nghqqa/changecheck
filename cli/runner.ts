@@ -99,8 +99,8 @@ export interface RunResult {
   markdown: string;
   baselineRecords: ExecRecord[];
   candidateRecords: ExecRecord[];
-  /** 0=无新增失败 1=新增关键违规 2=新增普通失败 */
-  exitCode: 0 | 1 | 2;
+  /** 0=无新增失败 1=新增关键违规 2=新增普通失败 3=配置/环境错误（含调用大面积失败，结果不可信） */
+  exitCode: 0 | 1 | 2 | 3;
 }
 
 export async function runConfig(cfg: CCConfig, env: { apiKey?: string; baseURL?: string } = {}): Promise<RunResult> {
@@ -154,8 +154,9 @@ export async function runConfig(cfg: CCConfig, env: { apiKey?: string; baseURL?:
     },
   });
 
-  // 退出码：仅新增失败非零（D7）——关键违规=1（阻断），普通新增失败=2（复核）
-  const exitCode: RunResult['exitCode'] = report.diff.newCriticalViolations > 0 ? 1 : report.diff.newFailures > 0 ? 2 : 0;
+  // 退出码：仅新增失败非零（D7）——关键违规=1（阻断），普通新增失败=2（复核），大面积调用失败=3（结果不可信）
+  const exitCode: RunResult['exitCode'] =
+    report.verdictLevel === 'error' ? 3 : report.diff.newCriticalViolations > 0 ? 1 : report.diff.newFailures > 0 ? 2 : 0;
   return { report, markdown: renderMarkdown(cfg.task.name, report), baselineRecords, candidateRecords, exitCode };
 }
 

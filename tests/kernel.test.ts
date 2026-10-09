@@ -297,3 +297,44 @@ test('自定义字段：第一个字段为主体名称，享受命名等价放�
   const v = checkRecord(s, rec({ parsed: { title: '季度报告', due: '下周五' } }));
   assert.equal(v.criticalViolation, true);
 });
+
+// ---- 审计修复回归 ----
+test('修复1·交换盲区：旧错日期/新错时间（字段级对比）必须判新增关键违规', () => {
+  const ref = { event: '例会', date: '10月12日', time: '下午2:00', location: '', deadline: '' };
+  const s = sample({ reference: ref, critical: ['date', 'time'] });
+  // 基线：日期错（关键）、时间对 → 关键违规字段 {date}
+  const base = rec({ parsed: { ...ref, date: '10月13日' } });
+  // 候选：日期修好、时间错（关键）→ 关键违规字段 {time}，整条仍失败
+  const cand = rec({ parsed: { ...ref, time: '下午3:00' } });
+  const d = build(s, [base], [cand]);
+  assert.equal(d.diff.newCriticalViolations, 1, '候选在 time 字段上引入了基线没有的关键违规');
+  assert.equal(d.verdictLevel, 'reject');
+  // 更狠的变体：候选同时修好日期、且时间错误只出现 1/3 次（多数决整条通过）→ 仍要拒绝
+  const good = rec({ parsed: { ...ref } });
+  const d2 = buildReportData({
+    taskName: '交换盲区·多数决',
+    samples: [s],
+    baselineRecords: [base, base, base],
+    candidateRecords: [good, good, cand],
+    baselineVersion: version('基线'),
+    candidateVersion: version('候选'),
+    meta: { mode: 'real', model: 'm', reps: 3, timeText: '', pricingText: '' },
+  });
+  assert.equal(d2.candidate.passCount, 1, '多数决整条判通过');
+  assert.equal(d2.verdictLevel, 'reject', '字段级关键违规不被多数决掩盖');
+  assert.equal(d2.diff.hiddenCritical, 1);
+});
+
+test('修复2·可信度闸门：调用大面积失败 → error，不得输出"无差异/建议采用"', () => {
+  const bad = rec({ error: 'HTTP 401: Invalid API key', raw: '', parsed: null });
+  const d = build(sample(), [bad], [bad]);
+  assert.equal(d.verdictLevel, 'error');
+  assert.match(d.verdict, /不可信/);
+  assert.match(d.verdict, /2\/2 次调用失败/);
+});
+
+test('修复3·语义反转词扩充："取消提交报告"不得等价于"提交报告"', () => {
+  const s = sample({ reference: { event: '提交报告', date: '10月12日', time: '', location: '', deadline: '' }, critical: [] });
+  const r = checkRecord(s, rec({ parsed: { event: '取消提交报告', date: '10月12日', time: '', location: '', deadline: '' } }));
+  assert.equal(r.fieldResults.find((x) => x.field === 'event')!.status, 'fail');
+});

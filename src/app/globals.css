@@ -134,6 +134,7 @@ textarea.code, input.code { font-family: var(--mono); font-size: 12.5px; }
 
 .banner { border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-weight: 600; }
 .banner.reject { background: var(--red-soft); color: var(--red); border: 1px solid #f3c6c6; }
+.banner.error { background: #f3e8fd; color: #6b21a8; border: 1px solid #ddc7f2; }
 .banner.review { background: var(--amber-soft); color: var(--amber); border: 1px solid #ecd9a8; }
 .banner.adopt { background: var(--green-soft); color: var(--green); border: 1px solid #bfe3cb; }
 .banner.same { background: #eef0f3; color: var(--ink-2); border: 1px solid var(--line); }

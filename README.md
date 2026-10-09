@@ -7,7 +7,7 @@
 - **仓库名**：`changecheck`
 - **中文名**：改版验收官（备选：`evaliff`、金丝雀/canary 隐喻）
 - **参赛**：2026 上海开源软件应用创新大赛 · 开源 AI 工具赛道（自主选题）
-- **截止**：2026-10-11 24:00 前提交材料至 oscc@oschina.cn
+- **提交截止**：2026-10-16 24:00（2026-10-09 官网复核，主赛事已顺延；见 docs/competition-facts.md）
 - **当前阶段**：✅ 可提交版本（2026-10-07）——功能完整、21 项测试全过、CI 绿、介绍 PDF 已生成
 - **提交材料**：见 [docs/submission/checklist.md](docs/submission/checklist.md)（仓库/介绍 PDF/演示视频脚本）
 

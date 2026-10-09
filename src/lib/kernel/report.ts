@@ -35,7 +35,7 @@ export interface VersionStats {
 
 export interface ReportData {
   verdict: string;
-  verdictLevel: 'reject' | 'review' | 'adopt' | 'same';
+  verdictLevel: 'reject' | 'review' | 'adopt' | 'same' | 'error';
   total: number;
   baseline: VersionStats;
   candidate: VersionStats;
@@ -68,6 +68,8 @@ export interface ReportData {
 interface Agg {
   pass: boolean;
   criticalViolation: boolean;
+  /** 出现过关键违规的字段集合（任意一次重复）——用于字段级新旧对比 */
+  criticalFields: Set<string>;
   checks: { record: ExecRecord; check: CheckResult }[];
   worst?: { record: ExecRecord; check: CheckResult };
 }
@@ -75,6 +77,12 @@ interface Agg {
 function aggregate(records: ExecRecord[], sample: KernelSample, opts: CheckOptions): Agg {
   const checks = records.map((r) => ({ record: r, check: checkRecord(sample, r, opts) }));
   const passCount = checks.filter((c) => c.check.pass).length;
+  const criticalFields = new Set<string>();
+  for (const c of checks) {
+    for (const f of c.check.fieldResults) {
+      if (f.status === 'fail' && f.critical) criticalFields.add(f.field);
+    }
+  }
   const worst =
     checks.find((c) => !c.check.pass && c.check.criticalViolation) ||
     checks.find((c) => !c.check.pass) ||
@@ -83,6 +91,7 @@ function aggregate(records: ExecRecord[], sample: KernelSample, opts: CheckOptio
   return {
     pass: passCount * 2 > checks.length,
     criticalViolation: checks.some((c) => c.check.criticalViolation),
+    criticalFields,
     checks,
     worst,
   };
@@ -152,12 +161,20 @@ export function buildReportData(params: {
   }
   const P = (s: KernelSample) => baseAgg.get(String(s.id))?.pass;
   const C = (s: KernelSample) => candAgg.get(String(s.id))?.pass;
-  const BC = (s: KernelSample) => !!baseAgg.get(String(s.id))?.criticalViolation;
-  const CC = (s: KernelSample) => !!candAgg.get(String(s.id))?.criticalViolation;
+  // 字段级关键违规集合：候选出现的、基线没有的关键违规字段（交换盲区：旧错日期→新错时间也能抓到）
+  const BCf = (s: KernelSample) => baseAgg.get(String(s.id))?.criticalFields ?? new Set<string>();
+  const CCf = (s: KernelSample) => candAgg.get(String(s.id))?.criticalFields ?? new Set<string>();
+  const hasNewCriticalField = (s: KernelSample) => {
+    const cf = CCf(s);
+    if (cf.size === 0) return false;
+    const bf = BCf(s);
+    for (const f of cf) if (!bf.has(f)) return true;
+    return false;
+  };
 
   const newFailures = samples.filter((s) => P(s) && !C(s));
-  // 新增关键违规：候选出现基线没有的关键违规 —— 与整条多数决无关（既含整条退步，也含被多数决掩盖的、以及普通失败升级为关键的）
-  const newCriticalSamples = samples.filter((s) => CC(s) && !BC(s));
+  // 新增关键违规（字段级）：无论整条多数决是否通过、无论是否同时修好了别的字段
+  const newCriticalSamples = samples.filter(hasNewCriticalField);
   const hiddenCriticalSamples = newCriticalSamples.filter((s) => C(s));
   const newPasses = samples.filter((s) => !P(s) && C(s));
   const bothFail = samples.filter((s) => !P(s) && !C(s));
@@ -181,10 +198,19 @@ export function buildReportData(params: {
   if (latDelta) perfParts.push(`耗时${latDelta}`);
   const perfText = perfParts.length ? `，${perfParts.join('、')}` : '';
 
-  // 采用判断：新增关键违规一票否决（独立于整条多数决）；其余新增失败需复核
+  // 可信度闸门：调用大面积失败（鉴权失效/网络/限流）时，"全部失败"在统计上与"无差异"无法区分，
+  // 必须显式标记结果不可信，而不是放行一条误导性的"无差异/建议采用"结论。
+  const totalCalls = baselineRecords.length + candidateRecords.length;
+  const failedCalls = baselineRecords.filter((r) => r.error).length + candidateRecords.filter((r) => r.error).length;
+  const unreliable = totalCalls > 0 && failedCalls / totalCalls >= 0.5;
+
+  // 采用判断：新增关键违规一票否决（字段级，独立于整条多数决）；其余新增失败需复核
   let verdict: string;
   let verdictLevel: ReportData['verdictLevel'];
-  if (newCriticalSamples.length > 0) {
+  if (unreliable) {
+    verdict = `执行异常：${failedCalls}/${totalCalls} 次调用失败（鉴权失效、网络或限流），本次没有得到有效的评测结果，结论不可信——失败样例与"无差异"无法区分。请检查 DEEPSEEK_API_KEY / 网络 / 限流后重跑。`;
+    verdictLevel = 'error';
+  } else if (newCriticalSamples.length > 0) {
     const hiddenNote = hiddenCriticalSamples.length > 0 ? `，其中 ${hiddenCriticalSamples.length} 条因多数决整条仍判通过、极易被忽视` : '';
     const extra = newFailures.length > newCriticalSamples.length ? `；另有 ${newFailures.length - newCriticalSamples.filter((s) => P(s)).length} 条普通新增失败` : '';
     verdict = `候选通过 ${candStats.passCount}/${samples.length}（基线 ${baseStats.passCount}/${samples.length}${perfText}）—— 但抓到 ${newCriticalSamples.length} 条新增关键违规${hiddenNote}${extra}。表面收益掩盖不了退步：不建议采用，修复后复跑确认新增失败清零。`;
@@ -212,8 +238,8 @@ export function buildReportData(params: {
   const regressions = samples.filter((s) => regressionSet.has(String(s.id)));
   const flagsOf = (s: KernelSample): SampleReport['flags'] => ({
     newFail: !!P(s) && !C(s),
-    newCritical: CC(s) && !BC(s),
-    hiddenByMajority: CC(s) && !BC(s) && !!C(s),
+    newCritical: hasNewCriticalField(s),
+    hiddenByMajority: hasNewCriticalField(s) && !!C(s),
   });
 
   return {

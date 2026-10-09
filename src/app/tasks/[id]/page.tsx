@@ -22,6 +22,12 @@ function VerdictChip({ level }: { level: string }) {
         <Icon name="dot" /> 有新增失败
       </span>
     );
+  if (level === 'error')
+    return (
+      <span className="badge gray">
+        <Icon name="alert" /> 执行异常
+      </span>
+    );
   if (level === 'review')
     return (
       <span className="badge missing">
