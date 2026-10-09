@@ -83,4 +83,5 @@ test('旧格式报告归一化：缺新字段的 stats 读取时不出现 undefi
   assert.equal(d.newFailureList[0].flags?.newFail, true);
   const md = renderMarkdown('t', d);
   assert.ok(!md.includes('undefined'));
+  assert.equal(d._legacyNormalized, true, '旧格式应标记归一化');
 });

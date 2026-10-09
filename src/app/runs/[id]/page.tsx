@@ -276,6 +276,7 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
 
           <p className="muted" style={{ marginTop: 24, fontSize: 12 }}>
             计价：{report.meta.pricingText}。结论保留「需人工确认」状态；本报告由 ChangeCheck 内核自动生成，逐条证据存于 run_items，可随时重算。
+            {report._legacyNormalized && <> 本报告生成于判定口径 v0.5 及以前，统计已按 v0.6 口径归一化显示。</>}
           </p>
         </>
       )}

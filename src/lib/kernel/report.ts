@@ -56,6 +56,8 @@ export interface ReportData {
   newPassList: { sampleId: string | number; category: string; note: string }[];
   bothFailList: SampleReport[];
   nearList: { sampleId: string | number; field: string; expected: string; actual: string }[];
+  /** 归一化标记：本报告生成于旧判定口径，读取时已补齐新字段 */
+  _legacyNormalized?: boolean;
   meta: {
     mode: string;
     model: string;
@@ -309,7 +311,9 @@ const esc = (s: unknown) => String(s ?? '').replace(/\|/g, '\\|').replace(/\r?\n
  * 读取时统一补默认值——历史报告在新页面/导出里不出现 undefined，判定展示口径一致。
  */
 export function normalizeReportData(raw: ReportData): ReportData {
-  const d = raw as ReportData & { diff?: Record<string, unknown> };
+  const d = raw as ReportData & { diff?: Record<string, unknown>; _legacyNormalized?: boolean };
+  // 判定历史标记：生成于 v0.5 及以前（缺字段级关键违规/偶发坏输出/费用可信度等新字段）→ 页面与导出注明口径
+  const legacy = (d.diff as { newCriticalViolations?: number } | undefined)?.newCriticalViolations === undefined || d.baseline?.costKnown === undefined;
   const diff = {
     newFailures: d.diff?.newFailures ?? 0,
     newCriticalViolations: d.diff?.newCriticalViolations ?? (d.diff as { newFailCritical?: number })?.newFailCritical ?? 0,
@@ -327,6 +331,7 @@ export function normalizeReportData(raw: ReportData): ReportData {
     f ?? { newFail: true, newCritical: critical, hiddenByMajority: false, newStructural: false };
   return {
     ...d,
+    _legacyNormalized: legacy,
     diff,
     baseline: stat(d.baseline),
     candidate: stat(d.candidate),
@@ -352,6 +357,9 @@ export function renderMarkdown(taskName: string, d: ReportData): string {
   L.push(`- 模式：**${d.meta.mode === 'mock' ? 'mock 模拟（演示链路）' : '真实 API'}** ｜ 模型：${d.meta.model} ｜ 样例：${d.total} 条 ｜ 每条重复 ${d.meta.reps} 次`);
   L.push(`- 基线：${d.baseline.label} ｜ 候选：${d.candidate.label}`);
   L.push(`- 生成时间：${d.meta.timeText}`);
+  if ((d as ReportData & { _legacyNormalized?: boolean })._legacyNormalized) {
+    L.push(`- ℹ️ 本报告生成于判定口径 v0.5 及以前，页面与导出的统计已按 v0.6 口径归一化显示（字段级关键违规对比、偶发坏输出、费用可信度）。`);
+  }
   if (d.meta.requirements?.items?.some((i) => i.confirmed)) {
     L.push('');
     L.push(`**验收依据**（用户确认的检查项，源自要求描述：「${d.meta.requirements.text}」）：`);
@@ -377,7 +385,7 @@ export function renderMarkdown(taskName: string, d: ReportData): string {
   L.push('|---|---|---|---|---|');
   for (const c of d.byCategory) L.push(`| ${c.label} | ${c.total} | ${c.baselinePass} | ${c.candidatePass} | ${c.newFailures} |`);
   L.push('');
-  L.push(`## 一、新增退步（最优先 · ${d.newFailureList.length} 条 = 整条退步 ${d.diff.newFailures} + 新增关键违规 ${d.diff.newCriticalViolations}，去重）`);
+  L.push(`## 一、新增退步（最优先 · ${d.newFailureList.length} 条 = 整条退步 ${d.diff.newFailures} + 新增关键违规 ${d.diff.newCriticalViolations} + 偶发坏输出 ${d.diff.newStructural}，去重）`);
   L.push('');
   for (const s of d.newFailureList) {
     const fl = s.flags ?? { newFail: true, newCritical: s.criticalViolation, hiddenByMajority: false, newStructural: false }; // 兼容旧版报告数据
